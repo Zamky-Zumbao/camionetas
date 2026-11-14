@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Despacho y Emergencias - Municipalidad de Las Condes</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: #f8fafc; display: flex; height: 100vh; overflow: hidden; }
+        #sidebar { width: 430px; background: #1e293b; border-right: 1px solid #334155; display: flex; flex-direction: column; z-index: 1000; box-shadow: 4px 0 15px rgba(0,0,0,0.5); }
+        #map { flex-grow: 1; height: 100%; background: #e2e8f0; }
+        .header-panel { background: #0f172a; padding: 15px; border-bottom: 1px solid #334155; }
+        .header-panel h2 { margin: 0 0 4px 0; font-size: 16px; color: #38bdf8; display: flex; align-items: center; gap: 8px; }
+        .header-panel p { margin: 0; font-size: 11px; color: #94a3b8; }
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px; font-weight: bold; }
+        .form-control { width: 100%; padding: 8px 10px; background: #0f172a; border: 1px solid #475569; color: #fff; border-radius: 6px; font-size: 13px; box-sizing: border-box; }
+        .form-control:focus { outline: none; border-color: #38bdf8; }
+        .btn { background: #2563eb; color: #fff; border: none; padding: 9px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; transition: background 0.2s; font-size: 13px; }
+        .btn:hover { background: #1d4ed8; }
+        .btn:disabled { background: #475569; cursor: not-allowed; }
+        .btn-zello { background: #f59e0b; color: #0f172a; border: none; padding: 6px 10px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 11px; display: inline-flex; align-items: center; gap: 5px; transition: background 0.2s; }
+        .btn-zello:hover { background: #d97706; }
+        .btn-status { background: #334155; color: #f8fafc; border: 1px solid #475569; padding: 5px 8px; border-radius: 5px; cursor: pointer; font-size: 11px; }
+        .btn-status:hover { background: #475569; }
+        #incident-alert { display: none; background: #0f172a; border-left: 4px solid #ef4444; padding: 10px; margin-top: 10px; border-radius: 4px; font-size: 12px; }
+        #fleet-list { flex-grow: 1; overflow-y: auto; padding: 15px; }
+        .unit-card { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 11px; margin-bottom: 10px; position: relative; transition: all 0.2s; }
+        .unit-card.active-dispatch { border: 2px solid #eab308; background: #1c1917; }
+        .unit-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .unit-name { font-weight: bold; font-size: 14px; color: #f1f5f9; }
+        .unit-zone { font-size: 11px; background: #334155; padding: 2px 6px; border-radius: 4px; color: #cbd5e1; }
+        .unit-info { font-size: 12px; color: #94a3b8; margin-bottom: 8px; line-height: 1.4; }
+        .unit-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-top: 6px; border-top: 1px solid #1e293b; }
+        .badge { font-size: 10px; padding: 3px 7px; border-radius: 4px; font-weight: bold; }
+        .badge-disponible { background: #166534; color: #bbf7d0; }
+        .badge-ruta { background: #9a3412; color: #ffedd5; }
+        .top-bar { position: absolute; top: 15px; right: 15px; z-index: 1000; display: flex; gap: 10px; }
+        .top-btn { background: #1e293b; border: 1px solid #475569; color: #fff; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 12px; }
+        .top-btn:hover { background: #334155; }
+        .toast { position: fixed; bottom: 20px; right: 20px; background: #10b981; color: #064e3b; padding: 10px 16px; border-radius: 6px; font-weight: bold; font-size: 13px; z-index: 2000; box-shadow: 0 4px 12px rgba(0,0,0,0.4); display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <div class="header-panel">
+            <h2>🚨 GESTIÓN DE EMERGENCIAS</h2>
+            <p>DEPTO. OPERACIONES Y EMERGENCIAS - LAS CONDES</p>
+        </div>
+        <div style="padding: 15px; background: #1e293b; border-bottom: 1px solid #334155;">
+            <div class="form-group">
+                <label>Tipología de Procedimiento</label>
+                <select id="tipo-emergencia" class="form-control">
+                    <option>Lesionado en Vía Pública</option>
+                    <option>Enfermo en Vía Pública</option>
+                    <option>Enfermo en Interior de Domicilio</option>
+                    <option>Amago de Incendio</option>
+                    <option>Escape de Gas</option>
+                    <option>Accidente Vehicular</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Dirección del Incidente (o clic en el mapa)</label>
+                <input type="text" id="dir-input" class="form-control" value="Av. Apoquindo 4500, Las Condes" placeholder="Ej: Av. Las Condes 9000">
+            </div>
+            <button class="btn" id="btn-calcular" onclick="buscarYCalcular()">CALCULAR MÓVIL MÁS CERCANO</button>
+            <div id="incident-alert"></div>
+        </div>
+        <div id="fleet-list">
+            <h3 style="font-size: 12px; color: #94a3b8; text-transform: uppercase; margin-top: 0;">Flota Activa (7 Camionetas)</h3>
+            <div id="unidades-container"></div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="top-bar">
+        <button class="top-btn" onclick="toggleSimulacion()" id="btn-sim">▶ Simular Movimiento GPS</button>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Inicializar Mapa centrado en Las Condes
+        const map = L.map('map').setView([-33.408, -70.565], 13);
+
+        // Mapa base ESRI (Libre de bloqueos locales)
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri',
+            maxZoom: 19
+        }).addTo(map);
+
+        // GeoJSON oficial COMPLETO con las 6 Zonas de Las Condes
+        const geojsonData = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[-70.584119, -33.431682], [-70.58334, -33.431641], [-70.582216, -33.431579], [-70.580727, -33.431481], [-70.579268, -33.431386], [-70.578513, -33.431328], [-70.57735, -33.431304], [-70.576117, -33.431283], [-70.574702, -33.431238], [-70.572276, -33.431151], [-70.570565, -33.431119], [-70.568992, -33.431069], [-70.5667, -33.431012], [-70.565082, -33.43097], [-70.564688, -33.429312], [-70.563776, -33.425613], [-70.563919, -33.425082], [-70.564259, -33.424008], [-70.564313, -33.423386], [-70.564328, -33.419444], [-70.564358, -33.417736], [-70.564555, -33.417308], [-70.564811, -33.416617], [-70.565506, -33.41437], [-70.5667, -33.41031], [-70.567996, -33.410633], [-70.5681, -33.410727], [-70.56882, -33.411577], [-70.569907, -33.41281], [-70.571147, -33.414207], [-70.571325, -33.414296], [-70.572017, -33.414547], [-70.574187, -33.41522], [-70.576092, -33.415794], [-70.577978, -33.416382], [-70.57819, -33.416458], [-70.579211, -33.416927], [-70.579438, -33.417032], [-70.579867, -33.417195], [-70.580508, -33.417413], [-70.581351, -33.417701], [-70.582781, -33.418185], [-70.582556, -33.41867], [-70.584262, -33.419238], [-70.585167, -33.4195], [-70.586765, -33.419808], [-70.589679, -33.420403], [-70.593616, -33.421185], [-70.594368, -33.421358], [-70.596532, -33.4215], [-70.596788, -33.421524], [-70.594792, -33.423041], [-70.593197, -33.424298], [-70.5917, -33.425448], [-70.590566, -33.426323], [-70.588895, -33.427658], [-70.587088, -33.429176], [-70.585532, -33.430516], [-70.585029, -33.430983], [-70.584664, -33.4314], [-70.584489, -33.431621], [-70.584435, -33.431725], [-70.584119, -33.431682]]]
+                    },
+                    "properties": { "Zonas": "Zona 1 Sur", "fill": "#F58231" }
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[-70.597827, -33.420746], [-70.596794, -33.421526], [-70.596726, -33.421571], [-70.596788, -33.421524], [-70.596532, -33.4215], [-70.594368, -33.421358], [-70.593616, -33.421185], [-70.589679, -33.420403], [-70.586765, -33.419808], [-70.585167, -33.4195], [-70.584262, -33.419238], [-70.582556, -33.41867], [-70.582781, -33.418185], [-70.581351, -33.417701], [-70.580508, -33.417413], [-70.579867, -33.417195], [-70.579438, -33.417032], [-70.579211, -33.416927], [-70.57819, -33.416458], [-70.577978, -33.416382], [-70.576092, -33.415794], [-70.574187, -33.41522], [-70.572017, -33.414547], [-70.571325, -33.414296], [-70.571147, -33.414207], [-70.569907, -33.41281], [-70.56882, -33.411577], [-70.5681, -33.410727], [-70.567996, -33.410633], [-70.566701, -33.41031], [-70.567221, -33.408779], [-70.56828, -33.406111], [-70.568606, -33.405248], [-70.569359, -33.40309], [-70.570117, -33.400953], [-70.57115, -33.397945], [-70.577517, -33.400426], [-70.580098, -33.401522], [-70.582266, -33.402429], [-70.583431, -33.402924], [-70.58379, -33.403131], [-70.584375, -33.403475], [-70.585022, -33.4038], [-70.585429, -33.403957], [-70.586231, -33.404207], [-70.587162, -33.404418], [-70.587928, -33.404539], [-70.588434, -33.404609], [-70.589218, -33.404764], [-70.590258, -33.405036], [-70.590807, -33.405223], [-70.591489, -33.405463], [-70.592689, -33.405905], [-70.595046, -33.406742], [-70.596353, -33.407202], [-70.597266, -33.407556], [-70.59819, -33.40792], [-70.599123, -33.408195], [-70.600141, -33.408229], [-70.600966, -33.408237], [-70.602162, -33.409312], [-70.602467, -33.409971], [-70.603414, -33.411364], [-70.603821, -33.41205], [-70.605116, -33.414011], [-70.605404, -33.4144], [-70.605723, -33.414852], [-70.60655, -33.415575], [-70.606782, -33.415855], [-70.606823, -33.415998], [-70.606782, -33.416076], [-70.60655, -33.416121], [-70.605625, -33.416595], [-70.604887, -33.416981], [-70.604756, -33.417053], [-70.604311, -33.417159], [-70.603873, -33.41721], [-70.603145, -33.417293], [-70.602532, -33.417446], [-70.601932, -33.417709], [-70.601685, -33.417919], [-70.601621, -33.417949], [-70.60155, -33.418049], [-70.6014, -33.41817], [-70.59856, -33.420232], [-70.597827, -33.420746]]]
+                    },
+                    "properties": { "Zonas": "Zona 1 Norte", "fill": "#911EB4" }
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[-70.56506, -33.408218], [-70.567294, -33.408596], [-70.567221, -33.408779], [-70.566701, -33.41031], [-70.567996, -33.410633], [-70.5667, -33.41031], [-70.565506, -33.41437], [-70.564811, -33.416617], [-70.564555, -33.417308], [-70.564358, -33.417736], [-70.564328, -33.419444], [-70.564313, -33.423386], [-70.564259, -33.424008], [-70.563919, -33.425082], [-70.563776, -33.425613], [-70.564688, -33.429312], [-70.565082, -33.43097], [-70.565099, -33.430971], [-70.556538, -33.430573], [-70.554319, -33.430488], [-70.5527, -33.430335], [-70.549341, -33.42997], [-70.545148, -33.429494], [-70.53958, -33.428865], [-70.539162, -33.428857], [-70.538694, -33.426971], [-70.538272, -33.424877], [-70.538073, -33.423687], [-70.53787, -33.422817], [-70.537755, -33.422511], [-70.537689, -33.422226], [-70.537666, -33.422012], [-70.537671, -33.421782], [-70.537775, -33.420984], [-70.537867, -33.420325], [-70.537913, -33.419854], [-70.537938, -33.419278], [-70.538007, -33.418928], [-70.538172, -33.418337], [-70.538585, -33.417203], [-70.538811, -33.41671], [-70.539038, -33.416326], [-70.539178, -33.415901], [-70.539419, -33.415264], [-70.539661, -33.414677], [-70.539832, -33.414306], [-70.540132, -33.413872], [-70.540394, -33.413452], [-70.540727, -33.413025], [-70.540816, -33.412821], [-70.540974, -33.412447], [-70.541155, -33.411982], [-70.541302, -33.41157], [-70.54174, -33.410505], [-70.542035, -33.409764], [-70.542292, -33.409161], [-70.542567, -33.409231], [-70.543005, -33.409327], [-70.543501, -33.409358], [-70.543804, -33.409327], [-70.544086, -33.409269], [-70.544412, -33.40914], [-70.544687, -33.408929], [-70.544901, -33.408689], [-70.54502, -33.408494], [-70.545079, -33.408366], [-70.54513, -33.408146], [-70.545122, -33.407897], [-70.545201, -33.407895], [-70.547687, -33.408073], [-70.550583, -33.408296], [-70.551799, -33.408405], [-70.552314, -33.408447], [-70.552794, -33.40846], [-70.553349, -33.408413], [-70.553604, -33.408371], [-70.555678, -33.407995], [-70.557182, -33.407718], [-70.558462, -33.407597], [-70.560228, -33.407493], [-70.561663, -33.407449], [-70.562322, -33.407525], [-70.56506, -33.408218]]]
+                    },
+                    "properties": { "Zonas": "Zona 2 Sur", "fill": "#4363D8" }
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[-70.566338, -33.396143], [-70.571147, -33.397955], [-70.570117, -33.400953], [-70.569359, -33.40309], [-70.568606, -33.405248], [-70.56828, -33.406111], [-70.567294, -33.408596], [-70.56506, -33.408218], [-70.562322, -33.407525], [-70.561663, -33.407449], [-70.560228, -33.407493], [-70.558462, -33.407597], [-70.557182, -33.407718], [-70.555678, -33.407995], [-70.553604, -33.408371], [-70.553349, -33.408413], [-70.552794, -33.40846], [-70.552314, -33.408447], [-70.551799, -33.408405], [-70.550583, -33.408296], [-70.547687, -33.408073], [-70.545201, -33.407895], [-70.545122, -33.407897], [-70.545047, -33.407552], [-70.544944, -33.407306], [-70.544898, -33.407192], [-70.544749, -33.406945], [-70.544556, -33.406771], [-70.544394, -33.406627], [-70.54414, -33.406472], [-70.543911, -33.406371], [-70.543516, -33.406212], [-70.543974, -33.404462], [-70.544147, -33.403672], [-70.544361, -33.402677], [-70.544422, -33.401454], [-70.544463, -33.399771], [-70.544361, -33.396831], [-70.544371, -33.396117], [-70.544555, -33.395463], [-70.545094, -33.394672], [-70.545735, -33.393831], [-70.546539, -33.392956], [-70.546957, -33.392403], [-70.547476, -33.391417], [-70.54828, -33.389854], [-70.559884, -33.393967], [-70.566338, -33.396143]]]
+                    },
+                    "properties": { "Zonas": "Zona 2 Norte", "fill": "#3CB44B" }
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[-70.543338, -33.406167], [-70.543517, -33.406211], [-70.543911, -33.406371], [-70.54414, -33.406472], [-70.544394, -33.406627], [-70.544556, -33.406771], [-70.544749, -33.406945], [-70.544898, -33.407192], [-70.544944, -33.407306], [-70.545047, -33.407552], [-70.545122, -33.4079], [-70.54513, -33.408146], [-70.545079, -33.408366], [-70.54502, -33.408494], [-70.544901, -33.408689], [-70.544687, -33.408929], [-70.544412, -33.40914], [-70.544086, -33.409269], [-70.543804, -33.409327], [-70.543501, -33.409358], [-70.543005, -33.409327], [-70.542567, -33.409231], [-70.542292, -33.409161], [-70.542035, -33.409764], [-70.54174, -33.410505], [-70.541302, -33.41157], [-70.541155, -33.411982], [-70.540974, -33.412447], [-70.540816, -33.412821], [-70.540727, -33.413025], [-70.540394, -33.413452], [-70.540132, -33.413872], [-70.539832, -33.414306], [-70.539661, -33.414677], [-70.539419, -33.415264], [-70.539178, -33.415901], [-70.539038, -33.416326], [-70.538811, -33.41671], [-70.538585, -33.417203], [-70.538172, -33.418337], [-70.538007, -33.418928], [-70.537938, -33.419278], [-70.537913, -33.419854], [-70.537867, -33.420325], [-70.537775, -33.420984], [-70.537671, -33.421782], [-70.537666, -33.422012], [-70.537689, -33.422226], [-70.537755, -33.422511], [-70.53787, -33.422817], [-70.538073, -33.423687], [-70.538272, -33.424877], [-70.538694, -33.426971], [-70.539162, -33.428857], [-70.539066, -33.431059], [-70.538862, -33.431798], [-70.538404, -33.432767], [-70.537997, -33.433463], [-70.537534, -33.433397], [-70.536696, -33.433287], [-70.535238, -33.433111], [-70.534429, -33.433004], [-70.532921, -33.432818], [-70.532085, -33.432715], [-70.527936, -33.432218], [-70.523529, -33.431661], [-70.521742, -33.430472], [-70.519869, -33.428297], [-70.519421, -33.424593], [-70.519299, -33.422215], [-70.520032, -33.420583], [-70.519829, -33.419326], [-70.518485, -33.419394], [-70.517915, -33.41885], [-70.517752, -33.418], [-70.516612, -33.417321], [-70.515594, -33.416641], [-70.514088, -33.415893], [-70.512907, -33.416267], [-70.511726, -33.417389], [-70.510505, -33.418068], [-70.508835, -33.418578], [-70.507451, -33.419428], [-70.506392, -33.419156], [-70.505578, -33.418714], [-70.505212, -33.418068], [-70.505374, -33.417151], [-70.505578, -33.416539], [-70.5057, -33.416029], [-70.505171, -33.414534], [-70.504682, -33.412971], [-70.502524, -33.411305], [-70.501221, -33.410184], [-70.500733, -33.4093], [-70.501099, -33.408552], [-70.501099, -33.40811], [-70.502117, -33.406853], [-70.502158, -33.405595], [-70.501914, -33.405119], [-70.501954, -33.404711], [-70.502117, -33.404576], [-70.501751, -33.402774], [-70.501181, -33.401924], [-70.50057, -33.400599], [-70.499389, -33.399749], [-70.502646, -33.400191], [-70.504112, -33.400293], [-70.504865, -33.400186], [-70.506168, -33.399689], [-70.506779, -33.399519], [-70.507249, -33.399484], [-70.50794, -33.399491], [-70.509292, -33.399506], [-70.509529, -33.399516], [-70.509759, -33.399542], [-70.510125, -33.399611], [-70.511455, -33.39998], [-70.512614, -33.400322], [-70.513098, -33.400464], [-70.513254, -33.40053], [-70.51356, -33.400739], [-70.513736, -33.400845], [-70.513925, -33.400912], [-70.514095, -33.400947], [-70.514444, -33.400988], [-70.515223, -33.401072], [-70.516277, -33.401181], [-70.51664, -33.401217], [-70.517174, -33.401258], [-70.517611, -33.401292], [-70.518292, -33.40134], [-70.519058, -33.401411], [-70.519582, -33.401457], [-70.5197, -33.401461], [-70.519818, -33.401454], [-70.519951, -33.401443], [-70.520187, -33.401413], [-70.520317, -33.401414], [-70.520994, -33.401447], [-70.521324, -33.401452], [-70.521623, -33.401445], [-70.522095, -33.401418], [-70.52299, -33.401349], [-70.524385, -33.40125], [-70.525374, -33.401184], [-70.526684, -33.401072], [-70.527529, -33.401011], [-70.527927, -33.400979], [-70.528759, -33.400905], [-70.529338, -33.400886], [-70.52967, -33.400892], [-70.530024, -33.400917], [-70.530427, -33.400967], [-70.531004, -33.401079], [-70.531468, -33.4012], [-70.532068, -33.40141], [-70.53278, -33.401756], [-70.533317, -33.402075], [-70.533826, -33.402442], [-70.534452, -33.402879], [-70.534844, -33.403162], [-70.53538, -33.403557], [-70.535857, -33.403865], [-70.536562, -33.404227], [-70.5369, -33.404381], [-70.537413, -33.404611], [-70.537745, -33.404743], [-70.538293, -33.404945], [-70.538679, -33.405065], [-70.539036, -33.40516], [-70.540052, -33.405389], [-70.542465, -33.405912], [-70.542862, -33.406012], [-70.543338, -33.406167]]]
+                    },
+                    "properties": { "Zonas": "Zona 3 Sur", "fill": "#FFE119" }
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[-70.546323, -33.388943], [-70.548298, -33.389844], [-70.547476, -33.391417], [-70.546957, -33.392403], [-70.546539, -33.392956], [-70.545735, -33.393831], [-70.545094, -33.394672], [-70.544555, -33.395463], [-70.544371, -33.396117], [-70.544361, -33.396831], [-70.544463, -33.399771], [-70.544422, -33.401454], [-70.544361, -33.402677], [-70.544147, -33.403672], [-70.543974, -33.404462], [-70.543517, -33.406211], [-70.543338, -33.406167], [-70.542862, -33.406012], [-70.542465, -33.405912], [-70.540052, -33.405389], [-70.539036, -33.40516], [-70.538679, -33.405065], [-70.538293, -33.404945], [-70.537745, -33.404743], [-70.537413, -33.404611], [-70.5369, -33.404381], [-70.536562, -33.404227], [-70.535857, -33.403865], [-70.53538, -33.403557], [-70.534844, -33.403162], [-70.534452, -33.402879], [-70.533826, -33.402442], [-70.533317, -33.402075], [-70.53278, -33.401756], [-70.532068, -33.40141], [-70.531468, -33.4012], [-70.531004, -33.401079], [-70.530427, -33.400967], [-70.530024, -33.400917], [-70.52967, -33.400892], [-70.529338, -33.400886], [-70.528759, -33.400905], [-70.527927, -33.400979], [-70.527529, -33.401011], [-70.526684, -33.401072], [-70.525374, -33.401184], [-70.524385, -33.40125], [-70.52299, -33.401349], [-70.522095, -33.401418], [-70.521623, -33.401445], [-70.521324, -33.401452], [-70.520994, -33.401447], [-70.520317, -33.401414], [-70.520187, -33.401413], [-70.519951, -33.401443], [-70.519818, -33.401454], [-70.5197, -33.401461], [-70.519582, -33.401457], [-70.519058, -33.401411], [-70.518292, -33.40134], [-70.517611, -33.401292], [-70.517174, -33.401258], [-70.51664, -33.401217], [-70.516277, -33.401181], [-70.515223, -33.401072], [-70.514444, -33.400988], [-70.514095, -33.400947], [-70.513925, -33.400912], [-70.513736, -33.400845], [-70.51356, -33.400739], [-70.513254, -33.40053], [-70.513098, -33.400464], [-70.512614, -33.400322], [-70.511455, -33.39998], [-70.510125, -33.399611], [-70.509759, -33.399542], [-70.509529, -33.399516], [-70.509292, -33.399506], [-70.50794, -33.399491], [-70.507249, -33.399484], [-70.506779, -33.399519], [-70.506168, -33.399689], [-70.504865, -33.400186], [-70.504112, -33.400293], [-70.502646, -33.400191], [-70.499389, -33.399749], [-70.499724, -33.39999], [-70.497749, -33.400781], [-70.496772, -33.400781], [-70.495143, -33.400441], [-70.494329, -33.400305], [-70.493433, -33.399966], [-70.493433, -33.399286], [-70.493433, -33.399014], [-70.49384, -33.39779], [-70.494003, -33.39677], [-70.493759, -33.396158], [-70.493352, -33.395547], [-70.492863, -33.394391], [-70.492782, -33.394119], [-70.4927, -33.393031], [-70.4927, -33.392011], [-70.493026, -33.390923], [-70.493107, -33.390243], [-70.4927, -33.389427], [-70.492212, -33.388], [-70.49156, -33.387116], [-70.49156, -33.386164], [-70.49156, -33.385212], [-70.492537, -33.384328], [-70.493433, -33.383852], [-70.49498, -33.383852], [-70.495388, -33.384192], [-70.495795, -33.385688], [-70.496528, -33.386844], [-70.498156, -33.385892], [-70.498726, -33.383716], [-70.498808, -33.382764], [-70.496202, -33.38256], [-70.496528, -33.380724], [-70.492782, -33.380316], [-70.4927, -33.378888], [-70.493026, -33.377324], [-70.491153, -33.376168], [-70.49213, -33.374672], [-70.494085, -33.372904], [-70.494248, -33.370796], [-70.493291, -33.369198], [-70.492578, -33.36896], [-70.492069, -33.368696], [-70.493851, -33.367821], [-70.494003, -33.3672], [-70.49494, -33.366418], [-70.495438, -33.366877], [-70.496263, -33.366987], [-70.497434, -33.36697], [-70.498635, -33.367038], [-70.499276, -33.367157], [-70.501067, -33.367991], [-70.503663, -33.369189], [-70.504722, -33.369674], [-70.505913, -33.370014], [-70.507714, -33.370184], [-70.509506, -33.370405], [-70.511521, -33.370745], [-70.512895, -33.371076], [-70.515939, -33.372003], [-70.51943, -33.373465], [-70.521995, -33.37463], [-70.523889, -33.375386], [-70.52512, -33.375956], [-70.526047, -33.376423], [-70.526963, -33.377018], [-70.52796, -33.377826], [-70.528999, -33.379024], [-70.531564, -33.381489], [-70.534139, -33.384039], [-70.537193, -33.385416], [-70.542048, -33.387388], [-70.546323, -33.388943]]]
+                    },
+                    "properties": { "Zonas": "Zona 3 Norte", "fill": "#E6194B" }
+                }
+            ]
+        };
+
+        const capaZonas = L.geoJSON(geojsonData, {
+            style: function(feature) {
+                return {
+                    color: '#1e293b',
+                    weight: 2,
+                    fillColor: feature.properties.fill,
+                    fillOpacity: 0.32
+                };
+            },
+            onEachFeature: function(feature, layer) {
+                layer.bindPopup(`<b>Jurisdicción Oficial:</b> ${feature.properties.Zonas}`);
+            }
+        }).addTo(map);
+
+        // Ajustar zoom automático a todas las zonas de Las Condes
+        map.fitBounds(capaZonas.getBounds());
+
+        // Definición única de las 7 Camionetas
+        let unidades = [
+            { id: 1, nombre: "Móvil 01", zona: "Zona 1 Norte", lat: -33.410, lng: -70.592, estado: "Disponible", tripulacion: "1 Bombero + 1 Paramédico", patente: "SR-101" },
+            { id: 2, nombre: "Móvil 02", zona: "Zona 1 Sur", lat: -33.423, lng: -70.578, estado: "Disponible", tripulacion: "1 Bombero + 1 Paramédico", patente: "SR-102" },
+            { id: 3, nombre: "Móvil 03", zona: "Zona 2 Norte", lat: -33.401, lng: -70.558, estado: "Disponible", tripulacion: "1 Bombero + 1 Paramédico", patente: "SR-103" },
+            { id: 4, nombre: "Móvil 04", zona: "Zona 2 Sur", lat: -33.422, lng: -70.550, estado: "Disponible", tripulacion: "1 Bombero + 1 Paramédico", patente: "SR-104" },
+            { id: 5, nombre: "Móvil 05", zona: "Zona 3 Norte", lat: -33.388, lng: -70.515, estado: "Disponible", tripulacion: "1 Bombero + 1 Paramédico", patente: "SR-105" },
+            { id: 6, nombre: "Móvil 06", zona: "Zona 3 Sur", lat: -33.415, lng: -70.518, estado: "Disponible", tripulacion: "1 Bombero + 1 Paramédico", patente: "SR-106" },
+            { id: 7, nombre: "Móvil 07", zona: "Multi-Zona", lat: -33.411, lng: -70.568, estado: "Disponible", tripulacion: "2 Bomberos + 1 Paramédico", patente: "RS-107" }
+        ];
+
+        let marcadoresUnidades = {};
+        let capaEmergencia = null;
+        let lineaRuta = null;
+        let ultimoIncidente = null;
+
+        // Algoritmo Point-in-Polygon para detectar en qué zona exacta cayó la emergencia
+        function detectarZona(lat, lng) {
+            for (const feature of geojsonData.features) {
+                const poly = feature.geometry.coordinates[0][0];
+                let inside = false;
+                for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                    const xi = poly[i][0], yi = poly[i][1];
+                    const xj = poly[j][0], yj = poly[j][1];
+                    const intersect = ((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+                    if (intersect) inside = !inside;
+                }
+                if (inside) return feature.properties.Zonas;
+            }
+            return "Fuera de límite comunal / Límite";
+        }
+
+        // Distancia real en kilómetros (Haversine)
+        function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function mostrarToast(mensaje) {
+            const toast = document.getElementById('toast');
+            toast.textContent = mensaje;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 3500);
+        }
+
+        function copiarParaZello(idUnidad) {
+            const u = unidades.find(x => x.id === idUnidad);
+            const tipo = document.getElementById('tipo-emergencia').value;
+            const dir = ultimoIncidente ? ultimoIncidente.dir : document.getElementById('dir-input').value;
+            const zonaInc = ultimoIncidente ? ultimoIncidente.zona : "Por confirmar";
+            const dist = u.distancia ? `${u.distancia} km (~${u.tiempoMin} min)` : "En sector";
+
+            const textoZello = `🚨 DESPACHO EMERGENCIA 🚨 | Unidad: ${u.nombre} (${u.patente}) | Procedimiento: ${tipo} | Dirección: ${dir} (${zonaInc}) | Distancia aprox: ${dist}`;
+            
+            navigator.clipboard.writeText(textoZello).then(() => {
+                mostrarToast(`📋 Despacho de ${u.nombre} copiado para pegar en Zello`);
+            });
+        }
+
+        function cambiarEstado(idUnidad) {
+            const u = unidades.find(x => x.id === idUnidad);
+            u.estado = u.estado === "Disponible" ? "En Procedimiento" : "Disponible";
+            actualizarMarcadores();
+            renderizarFlota(unidades);
+        }
+
+        function renderizarFlota(ordenados = unidades) {
+            const container = document.getElementById('unidades-container');
+            container.innerHTML = '';
+            ordenados.forEach((u, index) => {
+                const esMasCercano = ultimoIncidente && index === 0 && u.estado === 'Disponible';
+                const card = document.createElement('div');
+                card.className = `unit-card ${esMasCercano ? 'active-dispatch' : ''}`;
+                card.innerHTML = `
+                    <div class="unit-header">
+                        <span class="unit-name">${esMasCercano ? '⭐ ' : ''}${u.nombre} #${index + 1}</span>
+                        <span class="unit-zone">${u.zona}</span>
+                    </div>
+                    <div class="unit-info">
+                        Patente: <b>${u.patente}</b> | ${u.tripulacion}<br>
+                        ${u.distancia ? `<span style="color:#38bdf8;"><b>Distancia:</b> ${u.distancia} km (~${u.tiempoMin} min en ruta urbana)</span>` : ''}
+                    </div>
+                    <div class="unit-actions">
+                        <span class="badge ${u.estado === 'Disponible' ? 'badge-disponible' : 'badge-ruta'}">${u.estado}</span>
+                        <div style="display:flex; gap:5px;">
+                            <button class="btn-status" onclick="cambiarEstado(${u.id})">Estado</button>
+                            <button class="btn-zello" onclick="copiarParaZello(${u.id})">🎙️ Zello</button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function actualizarMarcadores() {
+            unidades.forEach(u => {
+                const colorBg = u.estado === "Disponible" ? "#2563eb" : "#ea580c";
+                const icono = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `<div style="background:${colorBg};color:white;padding:4px 8px;border-radius:5px;font-size:11px;font-weight:bold;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.6);white-space:nowrap;">🚐 ${u.nombre}</div>`,
+                    iconSize: [75, 26],
+                    iconAnchor: [37, 13]
+                });
+
+                if (marcadoresUnidades[u.id]) {
+                    marcadoresUnidades[u.id].setLatLng([u.lat, u.lng]);
+                    marcadoresUnidades[u.id].setIcon(icono);
+                } else {
+                    const marker = L.marker([u.lat, u.lng], { icon: icono }).addTo(map);
+                    marker.bindPopup(`<b>${u.nombre} (${u.patente})</b><br>Jurisdicción: ${u.zona}<br>Tripulación: ${u.tripulacion}`);
+                    marcadoresUnidades[u.id] = marker;
+                }
+            });
+        }
+
+        function procesarIncidente(latIncidente, lngIncidente, direccionTexto) {
+            const zonaDetectada = detectarZona(latIncidente, lngIncidente);
+            ultimoIncidente = { lat: latIncidente, lng: lngIncidente, dir: direccionTexto, zona: zonaDetectada };
+
+            if (capaEmergencia) map.removeLayer(capaEmergencia);
+            if (lineaRuta) map.removeLayer(lineaRuta);
+
+            const iconoEmergencia = L.divIcon({
+                html: `<div style="background:#dc2626;color:white;padding:6px 8px;border-radius:50%;font-size:15px;font-weight:bold;border:2px solid white;box-shadow:0 0 12px #ef4444;text-align:center;">🚨</div>`,
+                iconSize: [34, 34],
+                iconAnchor: [17, 17]
+            });
+
+            capaEmergencia = L.marker([latIncidente, lngIncidente], { icon: iconoEmergencia }).addTo(map);
+            capaEmergencia.bindPopup(`<b>INCIDENTE:</b> ${direccionTexto}<br><b>Jurisdicción:</b> ${zonaDetectada}`).openPopup();
+
+            // Calcular distancia y tiempo estimado por móvil (factor urbano 1.35x a 35 km/h promedio)
+            unidades.forEach(u => {
+                const distLineaRecta = calcularDistanciaKm(u.lat, u.lng, latIncidente, lngIncidente);
+                const distUrbana = distLineaRecta * 1.35;
+                u.distancia = distUrbana.toFixed(2);
+                u.tiempoMin = Math.max(1, Math.round((distUrbana / 35) * 60));
+            });
+
+            // Ordenar priorizando móviles Disponibles más cercanos
+            unidades.sort((a, b) => {
+                if (a.estado === 'Disponible' && b.estado !== 'Disponible') return -1;
+                if (a.estado !== 'Disponible' && b.estado === 'Disponible') return 1;
+                return parseFloat(a.distancia) - parseFloat(b.distancia);
+            });
+
+            renderizarFlota(unidades);
+
+            const masCercano = unidades[0];
+            const alertBox = document.getElementById('incident-alert');
+            alertBox.style.display = 'block';
+            alertBox.innerHTML = `
+                <div style="color:#f87171; font-weight:bold; margin-bottom:3px;">📍 ${zonaDetectada}</div>
+                <div>Móvil recomendado: <b style="color:#facc15;">${masCercano.nombre}</b> (${masCercano.distancia} km / ~${masCercano.tiempoMin} min)</div>
+            `;
+
+            lineaRuta = L.polyline([[masCercano.lat, masCercano.lng], [latIncidente, lngIncidente]], {
+                color: '#eab308',
+                weight: 4,
+                dashArray: '6, 8'
+            }).addTo(map);
+
+            map.setView([latIncidente, lngIncidente], 14);
+        }
+
+        async function buscarYCalcular() {
+            const dirInput = document.getElementById('dir-input').value.trim();
+            if (!dirInput) return;
+
+            const btn = document.getElementById('btn-calcular');
+            btn.disabled = true;
+            btn.textContent = "BUSCANDO DIRECCIÓN...";
+
+            try {
+                const query = encodeURIComponent(dirInput.toLowerCase().includes('las condes') ? dirInput : `${dirInput}, Las Condes, Santiago, Chile`);
+                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
+                const data = await resp.json();
+
+                if (data && data.length > 0) {
+                    const lat = parseFloat(data[0].lat);
+                    const lng = parseFloat(data[0].lon);
+                    procesarIncidente(lat, lng, dirInput);
+                } else {
+                    mostrarToast("⚠️ No se encontró la calle exacta. Haz clic directo en el mapa.");
+                }
+            } catch (e) {
+                mostrarToast("⚠️ Error de red al buscar dirección. Haz clic directo en el mapa.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "CALCULAR MÓVIL MÁS CERCANO";
+            }
+        }
+
+        // Permitir marcar la emergencia haciendo clic directo en cualquier punto del mapa
+        map.on('click', function(e) {
+            const coordsText = `Punto en mapa (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`;
+            document.getElementById('dir-input').value = coordsText;
+            procesarIncidente(e.latlng.lat, e.latlng.lng, coordsText);
+        });
+
+        let simulando = false;
+        let intervaloSimulacion = null;
+
+        function toggleSimulacion() {
+            simulando = !simulando;
+            const btn = document.getElementById('btn-sim');
+            if (simulando) {
+                btn.textContent = "⏸ Detener Simulación";
+                btn.style.background = "#dc2626";
+                intervaloSimulacion = setInterval(() => {
+                    unidades.forEach(u => {
+                        u.lat += (Math.random() - 0.5) * 0.0018;
+                        u.lng += (Math.random() - 0.5) * 0.0018;
+                    });
+                    actualizarMarcadores();
+                }, 2000);
+            } else {
+                btn.textContent = "▶ Simular Movimiento GPS";
+                btn.style.background = "#1e293b";
+                clearInterval(intervaloSimulacion);
+            }
+        }
+
+        actualizarMarcadores();
+        renderizarFlota();
+    </script>
+</body>
+</html>
