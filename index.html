@@ -83,19 +83,19 @@
         <div id="panel-movil" style="display:none; padding: 15px; background: #1e293b; border-bottom: 1px solid #334155;">
             <div class="form-group">
                 <label>Seleccione su Unidad Asignada</label>
-                <select id="select-mi-unidad" class="form-control">
+                <select id="select-mi-unidad" class="form-control" onchange="alCambiarUnidadMovil()">
                     <option value="1">Móvil 01 (Zona 1 Norte)</option>
                     <option value="2">Móvil 02 (Zona 1 Sur)</option>
                     <option value="3">Móvil 03 (Zona 2 Norte)</option>
                     <option value="4">Móvil 04 (Zona 2 Sur)</option>
                     <option value="5">Móvil 05 (Zona 3 Norte)</option>
-                    <option value="6">Móvil 06 (Zona 3 Sur)</option>
+                    <option value="6" selected>Móvil 06 (Zona 3 Sur)</option>
                     <option value="7">Móvil 07 (Multi-Zona)</option>
                 </select>
             </div>
             <button class="btn" id="btn-gps-toggle" style="background:#166534;" onclick="toggleTransmisionGPS()">🟢 INICIAR TRANSMISIÓN GPS</button>
             <button class="btn" id="btn-centrar" style="background:#0284c7; margin-top:8px;" onclick="centrarEnMiMovil()">📍 CENTRAR MAPA EN MI MÓVIL</button>
-            <p id="gps-status-text" style="font-size:11px; color:#94a3b8; margin-top:8px; text-align:center;">GPS en pausa. Presione iniciar para transmitir ubicación en vivo.</p>
+            <p id="gps-status-text" style="font-size:11px; color:#94a3b8; margin-top:8px; text-align:center;">Seleccionado Móvil 06. Presione iniciar para transmitir GPS en vivo.</p>
         </div>
 
         <div id="fleet-list">
@@ -402,6 +402,14 @@
         });
 
         // Transmisión GPS real desde el celular del operador en terreno
+        function alCambiarUnidadMovil() {
+            const idSeleccionado = parseInt(document.getElementById('select-mi-unidad').value);
+            const u = unidades.find(x => x.id === idSeleccionado);
+            if (u) {
+                document.getElementById('gps-status-text').textContent = `Seleccionado ${u.nombre}. Presione iniciar para transmitir.`;
+            }
+        }
+
         function toggleTransmisionGPS() {
             const btn = document.getElementById('btn-gps-toggle');
             const statusText = document.getElementById('gps-status-text');
@@ -416,16 +424,16 @@
                     return;
                 }
 
+                const unidadLocal = unidades.find(u => u.id === idSeleccionado);
                 btn.textContent = "🔴 DETENER TRANSMISIÓN GPS";
                 btn.style.background = "#dc2626";
-                statusText.textContent = "Transmitiendo GPS real en vivo desde este dispositivo...";
-                mostrarToast("📡 Transmisión GPS iniciada correctamente.");
+                statusText.textContent = `Transmitiendo GPS real en vivo (${unidadLocal ? unidadLocal.nombre : ''})...`;
+                mostrarToast(`📡 Transmisión GPS iniciada para ${unidadLocal ? unidadLocal.nombre : 'Móvil'}.`);
 
                 watchIdGPS = navigator.geolocation.watchPosition(
                     (position) => {
                         const lat = position.coords.latitude;
                         const lng = position.coords.longitude;
-                        const unidadLocal = unidades.find(u => u.id === idSeleccionado);
                         if (unidadLocal) {
                             unidadLocal.lat = lat;
                             unidadLocal.lng = lng;
