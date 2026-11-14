@@ -94,6 +94,7 @@
                 </select>
             </div>
             <button class="btn" id="btn-gps-toggle" style="background:#166534;" onclick="toggleTransmisionGPS()">🟢 INICIAR TRANSMISIÓN GPS</button>
+            <button class="btn" id="btn-centrar" style="background:#0284c7; margin-top:8px;" onclick="centrarEnMiMovil()">📍 CENTRAR MAPA EN MI MÓVIL</button>
             <p id="gps-status-text" style="font-size:11px; color:#94a3b8; margin-top:8px; text-align:center;">GPS en pausa. Presione iniciar para transmitir ubicación en vivo.</p>
         </div>
 
@@ -445,6 +446,18 @@
                     watchIdGPS = null;
                 }
                 mostrarToast("⏸ Transmisión GPS detenida.");
+            }
+        }
+
+        function centrarEnMiMovil() {
+            const idSeleccionado = parseInt(document.getElementById('select-mi-unidad').value);
+            const unidadLocal = unidades.find(u => u.id === idSeleccionado);
+            if (unidadLocal) {
+                map.setView([unidadLocal.lat, unidadLocal.lng], 16);
+                if (marcadoresUnidades[unidadLocal.id]) {
+                    marcadoresUnidades[unidadLocal.id].openPopup();
+                }
+                mostrarToast(`📍 Centrado en ${unidadLocal.nombre}`);
             }
         }
 
