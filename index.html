@@ -259,7 +259,7 @@
             onEachFeature: function(feature, layer) {
                 const nombreZona = feature.properties.Zonas || 'Zona';
                 layer.bindTooltip(nombreZona, { permanent: false, direction: 'center' });
-                layer.bindPopup(`<b>Jurisdicción Oficial:</b> ${nombreZona}`);
+                
             }
         }).addTo(map);
 
