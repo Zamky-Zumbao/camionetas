@@ -69,8 +69,28 @@
         .st-offline { background: #475569; color: #cbd5e1; border: 1px dashed #94a3b8; }
         .mini-btn { padding: 4px 8px; font-size: 11px; border-radius: 4px; border: none; cursor: pointer; font-weight: 600; }
 
+        /* Controles Flotantes del Mapa */
         .map-controls { position: absolute; top: 12px; right: 12px; z-index: 1000; display: flex; flex-direction: column; gap: 6px; }
-        .map-btn { background: #0f172a; border: 1px solid #475569; color: #f8fafc; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+        .map-btn { background: #0f172a; border: 1px solid #475569; color: #f8fafc; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
+        
+        /* Panel Flotante de Filtros de Capas / Visibilidad */
+        .layer-control-panel {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 1000;
+            background: rgba(15, 23, 42, 0.92);
+            border: 1px solid #334155;
+            backdrop-filter: blur(6px);
+            border-radius: 8px;
+            padding: 10px 14px;
+            max-width: 240px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .layer-control-panel h4 { margin: 0 0 8px 0; font-size: 12px; color: #38bdf8; text-transform: uppercase; border-bottom: 1px solid #334155; padding-bottom: 4px; }
+        .checkbox-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 8px; max-height: 160px; overflow-y: auto; }
+        .checkbox-label { font-size: 11.5px; color: #cbd5e1; display: flex; align-items: center; gap: 5px; cursor: pointer; }
+        .checkbox-label input { accent-color: #2563eb; cursor: pointer; }
 
         #mobile-view { display: none; flex: 1; overflow-y: auto; padding: 16px; align-items: flex-start; justify-content: center; background: #0f172a; }
         .mobile-card { width: 100%; max-width: 440px; background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 18px; }
@@ -98,6 +118,7 @@
             #central-view { flex-direction: column; }
             #sidebar { width: 100%; height: 48%; border-right: none; border-bottom: 1px solid #334155; }
             #map-wrapper { height: 52%; }
+            .layer-control-panel { display: none; } /* Ocultar flotante en pantallas muy pequeñas para evitar estorbar */
         }
     </style>
 </head>
@@ -165,6 +186,19 @@
 
         <div id="map-wrapper">
             <div id="map"></div>
+            
+            <!-- Panel Flotante con Checkboxes para Activar/Desactivar cada Móvil -->
+            <div class="layer-control-panel">
+                <h4>🚐 Visibilidad de Flota</h4>
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:10px;">
+                    <a href="#" onclick="toggleTodosMoviles(true); return false;" style="color:#38bdf8; text-decoration:none;">Marcar Todos</a>
+                    <a href="#" onclick="toggleTodosMoviles(false); return false;" style="color:#f87171; text-decoration:none;">Desmarcar</a>
+                </div>
+                <div class="checkbox-grid" id="layer-checkboxes">
+                    <!-- Generado dinámicamente -->
+                </div>
+            </div>
+
             <div class="map-controls">
                 <button class="map-btn" id="btn-sim" onclick="toggleSimulacion()">▶ Simular Patrullaje</button>
                 <button class="map-btn" onclick="limpiarIncidente()">🧹 Limpiar Incidente</button>
@@ -247,6 +281,8 @@
         ];
 
         let unidades = [...unidadesBase];
+        // Objeto para registrar si cada móvil está visible en el mapa (por defecto todos en true)
+        let visibilidadMoviles = { 1:true, 2:true, 3:true, 4:true, 5:true, 6:true, 7:true, 8:true, 9:true, 10:true };
 
         const map = L.map('map').setView([-33.408, -70.555], 13);
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
@@ -269,6 +305,32 @@
         let incidenteActual = null;
         let marcadorIncidente = null;
         let lineaRuta = null;
+
+        function inicializarCheckboxesCapas() {
+            const container = document.getElementById('layer-checkboxes');
+            container.innerHTML = '';
+            unidadesBase.forEach(u => {
+                const checked = visibilidadMoviles[u.id] ? 'checked' : '';
+                const lbl = document.createElement('label');
+                lbl.className = 'checkbox-label';
+                lbl.innerHTML = `<input type="checkbox" id="chk-movil-${u.id}" ${checked} onchange="cambiarVisibilidadMovil(${u.id}, this.checked)"> ${u.nombre}`;
+                container.appendChild(lbl);
+            });
+        }
+
+        function cambiarVisibilidadMovil(id, visible) {
+            visibilidadMoviles[id] = visible;
+            actualizarMarcadores();
+        }
+
+        function toggleTodosMoviles(marcar) {
+            for (let id in visibilidadMoviles) {
+                visibilidadMoviles[id] = marcar;
+                const chk = document.getElementById(`chk-movil-${id}`);
+                if (chk) chk.checked = marcar;
+            }
+            actualizarMarcadores();
+        }
 
         function puntoEnAnillo(lng, lat, ring) {
             let dentro = false;
@@ -415,6 +477,17 @@
 
         function actualizarMarcadores() {
             unidades.forEach(u => {
+                const debeMostrar = visibilidadMoviles[u.id] !== false;
+
+                // Si está desmarcado en el panel flotante, removemos su marcador del mapa
+                if (!debeMostrar) {
+                    if (marcadores[u.id]) {
+                        map.removeLayer(marcadores[u.id]);
+                        delete marcadores[u.id];
+                    }
+                    return;
+                }
+
                 const offline = esMovilOffline(u);
                 const bg = offline ? '#475569' : (u.estado === 'Disponible' ? '#16a34a' : '#dc2626');
                 const iconoTexto = offline ? `⚠️ ${u.nombre} (Sin GPS)` : `🚐 ${u.nombre}`;
@@ -687,7 +760,7 @@
 
         async function actualizarEstadoMovil() {
             const movilId = parseInt(document.getElementById('mobile-unit-select').value);
-            const estado = document.getElementById('mobile-status-select').value;
+            const estado = document.getElementById('mobile-status-select'].value;
             await sb.from('flota_gps').update({ estado, updated_at: new Date().toISOString() }).eq('id', movilId);
         }
 
@@ -714,6 +787,7 @@
 
         function switchMode(mode) {
             document.getElementById('btn-mode-central').classList.toggle('active', mode === 'central');
+            document.getElementById('btn-mode-mobile', mode === 'mobile');
             document.getElementById('btn-mode-mobile').classList.toggle('active', mode === 'mobile');
             document.getElementById('central-view').style.display = mode === 'central' ? 'flex' : 'none';
             document.getElementById('mobile-view').style.display = mode === 'mobile' ? 'flex' : 'none';
@@ -721,6 +795,8 @@
             if (mode === 'mobile') verificarDespachoMovilSeleccionado(false);
         }
 
+        // Inicialización
+        inicializarCheckboxesCapas();
         actualizarMarcadores();
         renderizarFlota();
         cargarFlotaInicial();
