@@ -285,11 +285,10 @@
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         }
 
-        // Función para saber si el móvil lleva más de 45 segundos sin transmitir
         function esMovilOffline(u) {
             if (!u.updated_at) return true;
             const diffSegundos = (new Date() - new Date(u.updated_at)) / 1000;
-            return diffSegundos > 45; // Umbral de 45 segundos sin latido GPS
+            return diffSegundos > 45;
         }
 
         async function procesarEmergencia(lat, lng, direccionTexto) {
@@ -316,7 +315,7 @@
             unidades.sort((a, b) => {
                 const offlineA = esMovilOffline(a) ? 1 : 0;
                 const offlineB = esMovilOffline(b) ? 1 : 0;
-                if (offlineA !== offlineB) return offlineA - offlineB; // Manda los offline al fondo
+                if (offlineA !== offlineB) return offlineA - offlineB;
 
                 const dispA = a.estado === 'Disponible' ? 0 : 1;
                 const dispB = b.estado === 'Disponible' ? 0 : 1;
@@ -566,7 +565,6 @@
           })
           .subscribe();
 
-        // Chequeo periódico cada 5 segundos para verificar si algún móvil dejó de emitir (GPS apagado / app cerrada)
         setInterval(() => {
             renderizarFlota();
             actualizarMarcadores();
@@ -667,7 +665,7 @@
 
         async function actualizarEstadoMovil() {
             const movilId = parseInt(document.getElementById('mobile-unit-select').value);
-            const estado = document.getElementById('mobile-status-select'].value;
+            const estado = document.getElementById('mobile-status-select').value;
             await sb.from('flota_gps').update({ estado, updated_at: new Date().toISOString() }).eq('id', movilId);
         }
 
