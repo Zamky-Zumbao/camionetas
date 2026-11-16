@@ -714,18 +714,39 @@
 
         function emitirSonidoAlerta() {
             try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                [880, 1100, 880, 1100].forEach((freq, i) => {
+                // Forzar la creación y desbloqueo del contexto de audio del navegador móvil
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioContext();
+                
+                if (ctx.state === 'suspended') {
+                    ctx.resume();
+                }
+
+                // Tono de alerta de alta frecuencia tipo sirena de emergencia
+                [880, 1100, 1320, 880, 1100].forEach((freq, i) => {
                     const osc = ctx.createOscillator();
                     const gain = ctx.createGain();
+                    
+                    osc.type = 'sawtooth'; // Sonido más penetrante tipo alarma
                     osc.frequency.value = freq;
+                    
+                    gain.gain.setValueAtTime(0.5, ctx.currentTime + i * 0.15);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.12);
+                    
                     osc.connect(gain);
                     gain.connect(ctx.destination);
-                    osc.start(ctx.currentTime + i * 0.18);
-                    osc.stop(ctx.currentTime + i * 0.18 + 0.14);
+                    
+                    osc.start(ctx.currentTime + i * 0.15);
+                    osc.stop(ctx.currentTime + i * 0.15 + 0.12);
                 });
-                if (navigator.vibrate) navigator.vibrate([300, 150, 300, 150, 400]);
-            } catch (e) {}
+
+                // Vibración fuerte de alta prioridad si el dispositivo lo soporta
+                if (navigator.vibrate) {
+                    navigator.vibrate([400, 200, 400, 200, 600]);
+                }
+            } catch (e) {
+                console.log("Error reproduciendo alerta sonora:", e);
+            }
         }
 
         let intervaloAlertaSonora = null;
