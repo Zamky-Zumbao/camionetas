@@ -297,7 +297,7 @@
                 switchMode('central');
                 aplicarModoVisorVisual();
             } else {
-                alert("❌ Contraseña incorrecta. Reintentar.");
+                alert("❌ Contraseña incorrecta. Reintente la contraseña.");
             }
         }
 
@@ -742,7 +742,7 @@
                 unidades = [...unidadesBase];
             }
 
-            // Sincronizar visibilidad de capas compartidas desde Supabase (central_lock)
+            // Cargar la visibilidad compartida desde Supabase para cualquier rol
             try {
                 const { data: lockData } = await sb.from('central_lock').select('visibilidad').eq('id', 1).single();
                 if (lockData && lockData.visibilidad) {
@@ -758,36 +758,41 @@
 
         // Canal en tiempo real para sincronizar flotas, incidentes y visibilidad de capas (Espejo total)
         sb.channel('flota-realtime-channel')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'flota_gps' }, payload => {
-              const mov = payload.new;
-              if (!mov || !mov.id) return;
-              const idx = unidades.findIndex(u => u.id === mov.id);
-              const prevDespacho = idx !== -1 ? unidades[idx].incidente_dir : null;
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'flota_gps' }, payload => {
+            const mov = payload.new;
+            if (!mov || !mov.id) return;
+            const idx = unidades.findIndex(u => u.id === mov.id);
+            const prevDespacho = idx !== -1 ? unidades[idx].incidente_dir : null;
 
-              if (idx !== -1) unidades[idx] = { ...unidades[idx], ...mov };
-              else unidades.push(mov);
+            if (idx !== -1) unidades[idx] = { ...unidades[idx], ...mov };
+            else unidades.push(mov);
 
-              actualizarMarcadores();
-              if (incidenteActual) procesarEmergencia(incidenteActual.lat, incidenteActual.lng, incidenteActual.dir);
-              else renderizarFlota();
+            actualizarMarcadores();
+            if (incidenteActual) procesarEmergencia(incidenteActual.lat, incidenteActual.lng, incidenteActual.dir);
+            else renderizarFlota();
 
-              const miMovilId = parseInt(document.getElementById('mobile-unit-select').value);
-              if (mov.id === miMovilId) {
-                  verificarDespachoMovilSeleccionado(!prevDespacho && !!mov.incidente_dir);
-              }
-              setStatusConexion(true, `Sincronizado: ${mov.nombre}`);
-          })
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'central_lock' }, payload => {
-              // Si el Administrador cambia la visibilidad de los móviles, el Visor lo actualiza al instante
-              const row = payload.new;
-              if (row && row.visibilidad) {
-                  visibilidadMoviles = row.visibilidad;
-                  inicializarCheckboxesCapas();
-                  actualizarMarcadores();
-                  renderizarFlota();
-              }
-          })
-          .subscribe();
+            const miMovilId = parseInt(document.getElementById('mobile-unit-select').value);
+            if (mov.id === miMovilId) {
+                verificarDespachoMovilSeleccionado(!prevDespacho && !!mov.incidente_dir);
+            }
+            setStatusConexion(true, `Sincronizado: ${mov.nombre}`);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'central_lock' }, payload => {
+            const row = payload.new;
+            if (row && row.visibilidad) {
+                visibilidadMoviles = row.visibilidad;
+                
+                // Actualizar visualmente los checkboxes en la pantalla del visor
+                unidadesBase.forEach(u => {
+                    const chk = document.getElementById(`chk-movil-${u.id}`);
+                    if (chk) chk.checked = visibilidadMoviles[u.id] !== false;
+                });
+
+                actualizarMarcadores();
+                renderizarFlota();
+            }
+        })
+        .subscribe();
 
         setInterval(() => {
             renderizarFlota();
