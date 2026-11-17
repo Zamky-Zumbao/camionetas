@@ -178,9 +178,10 @@
                 </div>
                 <div class="form-group">
                     <label>Dirección del Incidente (o clic en el mapa)</label>
-                    <div class="btn-row">
+                    <div class="btn-row" style="margin-bottom: 6px;">
                         <input type="text" id="dir-input" class="form-control" placeholder="Ej: Av. Apoquindo 4500" onkeypress="if(event.key==='Enter') buscarDireccion()">
-                        <button class="btn" style="flex: 0 0 90px;" onclick="buscarDireccion()">🔍 Ubicar</button>
+                        <button class="btn" style="flex: 0 0 75px;" onclick="buscarDireccion()">🔍 Ubicar</button>
+                        <button class="btn btn-danger" style="flex: 0 0 65px;" onclick="limpiarIncidente()" title="Quitar punto o incidente">✕ Quitar</button>
                     </div>
                     <div class="quick-tags">
                         <span class="q-tag" onclick="setPrueba('Av. Apoquindo 4500, Las Condes', -33.4135, -70.5835)">Apoquindo 4500</span>
@@ -567,10 +568,33 @@
         function limpiarIncidente() {
             if (esModoVisorCentral) return;
             incidenteActual = null;
-            if (marcadorIncidente) map.removeLayer(marcadorIncidente);
-            if (lineaRuta) map.removeLayer(lineaRuta);
-            document.getElementById('incident-alert').style.display = 'none';
-            unidades.forEach(u => { delete u.distKm; delete u.etaMin; });
+            
+            // Limpiar marcador del mapa y ruta
+            if (marcadorIncidente) {
+                map.removeLayer(marcadorIncidente);
+                marcadorIncidente = null;
+            }
+            if (lineaRuta) {
+                map.removeLayer(lineaRuta);
+                lineaRuta = null;
+            }
+            
+            // Limpiar caja de texto de dirección y alerta
+            const dirInput = document.getElementById('dir-input');
+            if (dirInput) dirInput.value = '';
+            
+            const alertBox = document.getElementById('incident-alert');
+            if (alertBox) {
+                alertBox.style.display = 'none';
+                alertBox.innerHTML = '';
+            }
+
+            // Restablecer valores de distancia en las unidades
+            unidades.forEach(u => { 
+                delete u.distKm; 
+                delete u.etaMin; 
+            });
+            
             renderizarFlota();
         }
 
