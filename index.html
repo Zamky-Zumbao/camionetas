@@ -11,26 +11,13 @@
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         
-        /* PANTALLA DE ACCESO / LOGIN DE ROLES */
         #role-screen {
-            position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            background: #020617;
-            z-index: 9999;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 16px;
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #020617; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px;
         }
         .role-card {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 12px;
-            padding: 24px;
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+            padding: 24px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         }
         .role-card h1 { font-size: 20px; color: #38bdf8; margin-bottom: 6px; }
         .role-card p { font-size: 13px; color: #94a3b8; margin-bottom: 20px; }
@@ -45,15 +32,8 @@
         #password-box { display: none; margin-top: 15px; text-align: left; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155; }
 
         #mode-bar {
-            background: #020617;
-            border-bottom: 1px solid #334155;
-            padding: 8px 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 2000;
-            flex-wrap: wrap;
-            gap: 8px;
+            background: #020617; border-bottom: 1px solid #334155; padding: 8px 16px;
+            display: flex; justify-content: space-between; align-items: center; z-index: 2000; flex-wrap: wrap; gap: 8px;
         }
         .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; color: #38bdf8; }
         .dev-credit { font-size: 11px; color: #94a3b8; font-weight: 600; background: #1e293b; padding: 3px 8px; border-radius: 4px; border: 1px solid #334155; }
@@ -154,7 +134,7 @@
             <div id="password-box">
                 <div class="form-group" style="margin-bottom:8px;">
                     <label>Ingresa Contraseña de Control</label>
-                    <input type="password" id="ctrl-pass-input" class="form-control" placeholder="Contraseña" onkeypress="if(event.key==='Enter') validarClaveControl()">
+                    <input type="password" id="ctrl-pass-input" class="form-control" placeholder="Clave (NVG o 123)" onkeypress="if(event.key==='Enter') validarClaveControl()">
                 </div>
                 <button class="btn" style="width:100%;" onclick="validarClaveControl()">Ingresar a Central</button>
             </div>
@@ -261,7 +241,6 @@
             <div class="form-group">
                 <label>Seleccionar Unidad</label>
                 <select id="mobile-unit-select" class="form-control" style="font-size:15px; padding:10px;" onchange="verificarDespachoMovilSeleccionado()">
-                    <!-- Se llena automáticamente con los 8 móviles limpios -->
                 </select>
             </div>
 
@@ -296,7 +275,6 @@
 
         let esModoVisorCentral = false;
 
-        // GESTIÓN DE ROLES DESDE LA PANTALLA DE BIENVENIDA
         function entrarComoMovil() {
             document.getElementById('role-screen').style.display = 'none';
             switchMode('mobile');
@@ -319,7 +297,7 @@
                 switchMode('central');
                 aplicarModoVisorVisual();
             } else {
-                alert("❌ Contraseña incorrecta. Reintenta tu clave.");
+                alert("❌ Contraseña incorrecta. Utiliza NVG (Control Total) o 123 (Modo Visor).");
             }
         }
 
@@ -329,15 +307,15 @@
                 banner = document.createElement('div');
                 banner.id = 'visor-banner';
                 banner.style.cssText = "background: #78350f; color: #fef3c7; text-align: center; padding: 6px; font-size: 12px; font-weight: 700; border-bottom: 1px solid #d97706;";
-                banner.innerHTML = "👁️ MODO VISOR (Solo Lectura - Supervisión)";
+                banner.innerHTML = "👁️ MODO VISOR (Espejo Automático del Administrador)";
                 const sidebar = document.getElementById('sidebar');
                 sidebar.insertBefore(banner, sidebar.firstChild);
             }
-            // Deshabilitar botones de despacho y control
+            // Bloquear controles y clics en el visor para que sea espejo fiel
             setTimeout(() => {
                 document.querySelectorAll('.mini-btn.btn-danger, .mini-btn.btn-success, .map-btn, #tipo-emergencia, #dir-input').forEach(el => {
                     el.disabled = true;
-                    el.style.opacity = '0.5';
+                    el.style.opacity = '0.4';
                     el.style.cursor = 'not-allowed';
                 });
             }, 200);
@@ -398,18 +376,25 @@
                 const checked = visibilidadMoviles[u.id] ? 'checked' : '';
                 const lbl = document.createElement('label');
                 lbl.className = 'checkbox-label';
-                lbl.innerHTML = `<input type="checkbox" id="chk-movil-${u.id}" ${checked} onchange="cambiarVisibilidadMovil(${u.id}, this.checked)"> ${u.nombre}`;
+                // Si es modo visor, bloqueamos el checkbox para que sea espejo estricto del Administrador
+                const disabledAttr = esModoVisorCentral ? 'disabled style="cursor:not-allowed;"' : '';
+                lbl.innerHTML = `<input type="checkbox" id="chk-movil-${u.id}" ${checked} ${disabledAttr} onchange="cambiarVisibilidadMovil(${u.id}, this.checked)"> ${u.nombre}`;
                 container.appendChild(lbl);
             });
         }
 
-        function cambiarVisibilidadMovil(id, visible) {
+        async function cambiarVisibilidadMovil(id, visible) {
+            if (esModoVisorCentral) return; // El visor no altera capas locales
             visibilidadMoviles[id] = visible;
             actualizarMarcadores();
             renderizarFlota();
+
+            // Guardar estado de visibilidad compartido en Supabase para reflejarlo en el Visor
+            await sb.from('central_lock').update({ visibilidad: visibilidadMoviles }).eq('id', 1);
         }
 
-        function toggleTodosMoviles(marcar) {
+        async function toggleTodosMoviles(marcar) {
+            if (esModoVisorCentral) return;
             for (let id in visibilidadMoviles) {
                 visibilidadMoviles[id] = marcar;
                 const chk = document.getElementById(`chk-movil-${id}`);
@@ -417,6 +402,7 @@
             }
             actualizarMarcadores();
             renderizarFlota();
+            await sb.from('central_lock').update({ visibilidad: visibilidadMoviles }).eq('id', 1);
         }
 
         function puntoEnAnillo(lng, lat, ring) {
@@ -523,6 +509,7 @@
         }
 
         async function buscarDireccion() {
+            if (esModoVisorCentral) return;
             const query = document.getElementById('dir-input').value.trim();
             if (!query) return;
             const fullQuery = query.toLowerCase().includes('las condes') ? query : `${query}, Las Condes, Santiago, Chile`;
@@ -532,19 +519,21 @@
                 if (data && data.length > 0) {
                     procesarEmergencia(parseFloat(data[0].lat), parseFloat(data[0].lon), data[0].display_name.split(',').slice(0,2).join(','));
                 } else {
-                    alert("No se encontró esa dirección. Haz clic directo sobre la calle en el mapa.");
+                    alert("No se encontró esa dirección.");
                 }
             } catch (e) {
-                alert("Error buscando dirección. Haz clic directo en el mapa.");
+                alert("Error buscando dirección.");
             }
         }
 
         function setPrueba(texto, lat, lng) {
+            if (esModoVisorCentral) return;
             document.getElementById('dir-input').value = texto;
             procesarEmergencia(lat, lng, texto);
         }
 
         function limpiarIncidente() {
+            if (esModoVisorCentral) return;
             incidenteActual = null;
             if (marcadorIncidente) map.removeLayer(marcadorIncidente);
             if (lineaRuta) map.removeLayer(lineaRuta);
@@ -555,7 +544,7 @@
         }
 
         map.on('click', function(e) {
-            if (esModoVisorCentral) return; // Bloquear clics de incidente si es visor
+            if (esModoVisorCentral) return;
             const lat = e.latlng.lat;
             const lng = e.latlng.lng;
             const txt = `Punto Mapa (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
@@ -748,19 +737,26 @@
                         const remoto = data.find(d => d.id === base.id);
                         return remoto ? { ...base, ...remoto } : base;
                     });
-                    actualizarMarcadores();
-                    renderizarFlota();
-                    verificarDespachoMovilSeleccionado();
-                    setStatusConexion(true, `Supabase En Vivo (${data.length} móviles)`);
                 }
             } catch (err) {
-                setStatusConexion(false, "Modo Local (8 Móviles Base)");
                 unidades = [...unidadesBase];
-                actualizarMarcadores();
-                renderizarFlota();
             }
+
+            // Sincronizar visibilidad de capas compartidas desde Supabase (central_lock)
+            try {
+                const { data: lockData } = await sb.from('central_lock').select('visibilidad').eq('id', 1).single();
+                if (lockData && lockData.visibilidad) {
+                    visibilidadMoviles = lockData.visibilidad;
+                }
+            } catch (e) {}
+
+            actualizarMarcadores();
+            renderizarFlota();
+            inicializarCheckboxesCapas();
+            setStatusConexion(true, "Supabase En Vivo Sincronizado");
         }
 
+        // Canal en tiempo real para sincronizar flotas, incidentes y visibilidad de capas (Espejo total)
         sb.channel('flota-realtime-channel')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'flota_gps' }, payload => {
               const mov = payload.new;
@@ -780,6 +776,16 @@
                   verificarDespachoMovilSeleccionado(!prevDespacho && !!mov.incidente_dir);
               }
               setStatusConexion(true, `Sincronizado: ${mov.nombre}`);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'central_lock' }, payload => {
+              // Si el Administrador cambia la visibilidad de los móviles, el Visor lo actualiza al instante
+              const row = payload.new;
+              if (row && row.visibilidad) {
+                  visibilidadMoviles = row.visibilidad;
+                  inicializarCheckboxesCapas();
+                  actualizarMarcadores();
+                  renderizarFlota();
+              }
           })
           .subscribe();
 
@@ -811,7 +817,7 @@
                 if (!ocupadoPorOtro) {
                     const opt = document.createElement('option');
                     opt.value = u.id;
-                    opt.textContent = u.nombre; // Solo muestra ME-01, ME-02, etc. sin patentes
+                    opt.textContent = u.nombre;
                     if (u.id === valorActual) opt.selected = true;
                     select.appendChild(opt);
                 }
@@ -988,6 +994,7 @@
 
         let simInterval = null;
         function toggleSimulacion() {
+            if (esModoVisorCentral) return;
             const btn = document.getElementById('btn-sim');
             if (simInterval) {
                 clearInterval(simInterval);
@@ -1019,10 +1026,7 @@
             }
         }
 
-        // Inicialización base
-        inicializarCheckboxesCapas();
-        actualizarMarcadores();
-        renderizarFlota();
+        // Inicialización
         cargarFlotaInicial();
     </script>
 </body>
