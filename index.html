@@ -270,6 +270,11 @@
         </div>
     </div>
 
+    <!-- Reproductor de audio invisible para evitar suspensión en Android -->
+    <audio id="audio-mudo" loop style="display:none;">
+        <source src="data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU2LjM2LjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAAAAAAAAAAAAAAAAAWGluZm8AAAAZAAAAEAAACvAAAwQGDQ0PDxAREhMTFRUXGBkaGxwdHh8gISIjJCUmJygpKi0uMTIzNDU2Nzg5Ojs8PUI=" type="audio/mp3">
+    </audio>
+
     <script>
         const SUPABASE_URL = "https://pmcmcbyxqynzhkachyiz.supabase.co";
         const SUPABASE_KEY = "sb_publishable_Vc7-e-AjorgMgj45SmAL5g_Xr0glJjx";
@@ -314,16 +319,13 @@
                 sidebar.insertBefore(banner, sidebar.firstChild);
             }
             
-            // Bloquear inmediatamente todos los controles de despacho, mapas y buscador de direcciones para el visor
             setTimeout(() => {
-                // 1. Deshabilitar selectores, inputs, botones de búsqueda y etiquetas rápidas
                 document.querySelectorAll('.mini-btn, .map-btn, #tipo-emergencia, #dir-input, .q-tag, #sidebar button').forEach(el => {
                     el.disabled = true;
                     el.style.opacity = '0.4';
                     el.style.cursor = 'not-allowed';
                 });
 
-                // 2. Bloquear específicamente el botón "Ubicar" y el campo de texto de dirección
                 const btnUbicar = document.querySelector('button[onclick="buscarDireccion()"]');
                 if(btnUbicar) {
                     btnUbicar.disabled = true;
@@ -338,13 +340,11 @@
                     inputDir.style.cursor = 'not-allowed';
                 }
 
-                // 3. BLOQUEO TOTAL DE LOS CHECKBOXES DE VISIBILIDAD DE FLOTA
                 document.querySelectorAll('#layer-checkboxes input[type="checkbox"]').forEach(chk => {
                     chk.disabled = true;
                     chk.style.cursor = 'not-allowed';
                 });
 
-                // 4. Ocultar enlaces de Marcar/Desmarcar en el panel flotante
                 document.querySelectorAll('.layer-control-panel a').forEach(a => {
                     a.style.display = 'none';
                 });
@@ -365,7 +365,6 @@
         ];
 
         let unidades = [...unidadesBase];
-        // Por defecto tomamos todas las unidades como visibles inicialmente
         let visibilidadMoviles = { 1:true, 2:true, 3:true, 4:true, 5:true, 6:true, 7:true, 8:true };
 
         const map = L.map('map').setView([-33.408, -70.555], 13);
@@ -407,7 +406,6 @@
                 const checked = visibilidadMoviles[u.id] !== false ? 'checked' : '';
                 const lbl = document.createElement('label');
                 lbl.className = 'checkbox-label';
-                // Si es modo visor, los checkboxes nacen desactivados para que no pueda tocarlos
                 const disabledAttr = esModoVisorCentral ? 'disabled style="cursor:not-allowed;"' : '';
                 lbl.innerHTML = `<input type="checkbox" id="chk-movil-${u.id}" ${checked} ${disabledAttr} onchange="cambiarVisibilidadMovil(${u.id}, this.checked)"> ${u.nombre}`;
                 container.appendChild(lbl);
@@ -419,8 +417,6 @@
             visibilidadMoviles[id] = visible;
             actualizarMarcadores();
             renderizarFlota();
-
-            // EL CUADRO MANDA: Guardar inmediatamente el estado actual de los checkboxes en Supabase
             await sb.from('central_lock').update({ visibilidad: visibilidadMoviles }).eq('id', 1);
         }
 
@@ -507,7 +503,6 @@
                 return parseFloat(a.distKm) - parseFloat(b.distKm);
             });
 
-            // Considerar solo unidades visibles en el cuadro para sugerencia
             const unidadVisibleSugerida = unidades.find(u => visibilidadMoviles[u.id] !== false && !esMovilOffline(u) && u.estado === 'Disponible') || unidades.find(u => visibilidadMoviles[u.id] !== false);
             
             const alertBox = document.getElementById('incident-alert');
@@ -569,8 +564,6 @@
         function limpiarIncidente() {
             if (esModoVisorCentral) return;
             incidenteActual = null;
-            
-            // Limpiar marcador del mapa y ruta
             if (marcadorIncidente) {
                 map.removeLayer(marcadorIncidente);
                 marcadorIncidente = null;
@@ -579,23 +572,17 @@
                 map.removeLayer(lineaRuta);
                 lineaRuta = null;
             }
-            
-            // Limpiar caja de texto de dirección y alerta
             const dirInput = document.getElementById('dir-input');
             if (dirInput) dirInput.value = '';
-            
             const alertBox = document.getElementById('incident-alert');
             if (alertBox) {
                 alertBox.style.display = 'none';
                 alertBox.innerHTML = '';
             }
-
-            // Restablecer valores de distancia en las unidades
             unidades.forEach(u => { 
                 delete u.distKm; 
                 delete u.etaMin; 
             });
-            
             renderizarFlota();
         }
 
@@ -610,9 +597,7 @@
 
         function actualizarMarcadores() {
             unidades.forEach(u => {
-                // EL CUADRO MANDA: Si el checkbox está desmarcado, se elimina el marcador del mapa de inmediato
                 const debeMostrar = visibilidadMoviles[u.id] !== false;
-
                 if (!debeMostrar) {
                     if (marcadores[u.id]) {
                         map.removeLayer(marcadores[u.id]);
@@ -620,11 +605,9 @@
                     }
                     return;
                 }
-
                 const offline = esMovilOffline(u);
                 const bg = offline ? '#475569' : (u.estado === 'Disponible' ? '#16a34a' : '#dc2626');
                 const iconoTexto = offline ? `⚠️ ${u.nombre} (Sin GPS)` : `🚐 ${u.nombre}`;
-                
                 const htmlIcon = `<div style="background:${bg};color:#fff;padding:4px 9px;border-radius:5px;font-size:11px;font-weight:800;border:2px solid #fff;display:inline-block;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.6);">${iconoTexto}</div>`;
                 
                 if (marcadores[u.id]) {
@@ -644,10 +627,7 @@
             const cont = document.getElementById('unidades-container');
             if(!cont) return;
             cont.innerHTML = '';
-
-            // EL CUADRO MANDA: Filtrar estrictamente solo las unidades que el cuadro de visibilidad tiene con check activo
             const unidadesVisibles = unidades.filter(u => visibilidadMoviles[u.id] !== false);
-            
             const countText = document.getElementById('fleet-count-text');
             if(countText) countText.textContent = `Flota Operativa (${unidadesVisibles.length} Móviles Visibles)`;
 
@@ -673,7 +653,6 @@
 
                 const ultimaVez = u.updated_at ? new Date(u.updated_at).toLocaleTimeString() : 'Inactivo / Turno Cerrado';
                 const ultimaUbicacionTexto = `<div style="font-size:10.5px; color:#94a3b8; margin-top:2px;">Ult. Pos: (${u.lat.toFixed(4)}, ${u.lng.toFixed(4)}) — ${ultimaVez}</div>`;
-
                 const deshabilitarControles = esModoVisorCentral ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : '';
 
                 const estadoBtn = u.estado === 'Disponible' 
@@ -703,7 +682,6 @@
                 `;
                 cont.appendChild(card);
             });
-
             poblarSelectMovilesCelular();
         }
 
@@ -804,7 +782,6 @@
                 unidades = [...unidadesBase];
             }
 
-            // Sincronizar visibilidad de capas compartidas desde Supabase (central_lock)
             try {
                 const { data: lockData } = await sb.from('central_lock').select('visibilidad').eq('id', 1).single();
                 if (lockData && lockData.visibilidad) {
@@ -818,7 +795,6 @@
             setStatusConexion(true, "Supabase En Vivo Sincronizado");
         }
 
-        // Canal en tiempo real robusto para sincronizar tanto flota_gps como el cuadro maestro central_lock
         sb.channel('flota-realtime-channel')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'flota_gps' }, payload => {
               const mov = payload.new;
@@ -846,7 +822,6 @@
               const row = payload.new;
               if (row && row.visibilidad) {
                   visibilidadMoviles = row.visibilidad;
-                  // Actualizar visualmente los checkboxes de la interfaz según lo que mande Supabase
                   unidadesBase.forEach(u => {
                       const chk = document.getElementById(`chk-movil-${u.id}`);
                       if (chk) chk.checked = visibilidadMoviles[u.id] !== false;
@@ -862,7 +837,6 @@
             actualizarMarcadores();
         }, 5000);
 
-        // --- GESTIÓN MÓVIL ---
         window.addEventListener('beforeunload', function (e) {
             if (watchId !== null) {
                 e.preventDefault();
@@ -998,11 +972,25 @@
         let wakeLock = null;
         let gpsHeartbeatInterval = null;
 
+        async function solicitarWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    wakeLock.addEventListener('release', () => {
+                        wakeLock = null;
+                    });
+                }
+            } catch (err) {
+                console.log(`Wake Lock error: ${err.name}, ${err.message}`);
+            }
+        }
+
         async function toggleTransmisionGPS() {
             pedirPermisoNotificacion();
             const btn = document.getElementById('btn-gps-toggle');
             const log = document.getElementById('mobile-gps-log');
             const selectMovil = document.getElementById('mobile-unit-select');
+            const audioMudo = document.getElementById('audio-mudo');
             if(!selectMovil) return;
             const movilId = parseInt(selectMovil.value);
 
@@ -1014,6 +1002,7 @@
                     gpsHeartbeatInterval = null;
                 }
                 if (wakeLock) { wakeLock.release(); wakeLock = null; }
+                if (audioMudo) audioMudo.pause();
                 selectMovil.disabled = false;
 
                 btn.textContent = "📡 INICIAR TRANSMISIÓN GPS";
@@ -1025,6 +1014,7 @@
 
             if (!navigator.geolocation) return alert("Tu dispositivo no soporta GPS.");
             await solicitarWakeLock();
+            if (audioMudo) audioMudo.play().catch(e => console.log("Audio play error:", e));
 
             selectMovil.disabled = true;
 
@@ -1140,7 +1130,6 @@
             }
         }
 
-        // Inicialización
         cargarFlotaInicial();
     </script>
     <script>
