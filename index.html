@@ -716,20 +716,23 @@
             if (!select) return;
             const valorActual = parseInt(select.value) || 1;
 
+            // Ordenar siempre la flota numéricamente por ID (de ME-01 a ME-10)
+            let unidadesOrdenadas = [...unidades].sort((a, b) => a.id - b.id);
+
             select.innerHTML = '';
-            unidades.forEach(u => {
+            unidadesOrdenadas.forEach(u => {
                 const ocupadoPorOtro = !esMovilOffline(u) && u.id !== valorActual;
                 
                 if (!ocupadoPorOtro) {
                     const opt = document.createElement('option');
                     opt.value = u.id;
-                    opt.textContent = `${u.nombre} (${u.patente})`;
+                    // Mostramos ÚNICAMENTE el nombre (ej: "ME-01"), eliminando la patente
+                    opt.textContent = u.nombre; 
                     if (u.id === valorActual) opt.selected = true;
                     select.appendChild(opt);
                 }
             });
 
-            // Si el móvil seleccionado fue tomado por otro, selecciona el primero libre
             if (!select.value && select.options.length > 0) {
                 select.selectedIndex = 0;
             }
