@@ -311,11 +311,20 @@
                 const sidebar = document.getElementById('sidebar');
                 sidebar.insertBefore(banner, sidebar.firstChild);
             }
+            
+            // Bloquear inmediatamente todos los controles de despacho y mapas para el visor
             setTimeout(() => {
-                document.querySelectorAll('.mini-btn.btn-danger, .mini-btn.btn-success, .map-btn, #tipo-emergencia, #dir-input').forEach(el => {
+                // 1. Deshabilitar selectores de emergencia e inputs de dirección
+                document.querySelectorAll('.mini-btn, .map-btn, #tipo-emergencia, #dir-input, .q-tag').forEach(el => {
                     el.disabled = true;
                     el.style.opacity = '0.4';
                     el.style.cursor = 'not-allowed';
+                });
+
+                // 2. BLOQUEO TOTAL DE LOS CHECKBOXES DE VISIBILIDAD DE FLOTA
+                document.querySelectorAll('#layer-checkboxes input[type="checkbox"]').forEach(chk => {
+                    chk.disabled = true;
+                    chk.style.cursor = 'not-allowed';
                 });
             }, 200);
         }
@@ -376,6 +385,7 @@
                 const checked = visibilidadMoviles[u.id] !== false ? 'checked' : '';
                 const lbl = document.createElement('label');
                 lbl.className = 'checkbox-label';
+                // Si es modo visor, los checkboxes nacen desactivados para que no pueda tocarlos
                 const disabledAttr = esModoVisorCentral ? 'disabled style="cursor:not-allowed;"' : '';
                 lbl.innerHTML = `<input type="checkbox" id="chk-movil-${u.id}" ${checked} ${disabledAttr} onchange="cambiarVisibilidadMovil(${u.id}, this.checked)"> ${u.nombre}`;
                 container.appendChild(lbl);
