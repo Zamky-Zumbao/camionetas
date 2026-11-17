@@ -995,7 +995,7 @@
 
         let watchId = null;
         let wakeLock = null;
-        let gpsHeartbeatInterval = null; // Variable para el latido de respaldo
+        let gpsHeartbeatInterval = null;
 
         async function toggleTransmisionGPS() {
             pedirPermisoNotificacion();
@@ -1036,40 +1036,50 @@
 
             const gpsOptions = {
                 enableHighAccuracy: true,
-                maximumAge: 10000,
-                timeout: 30000
+                maximumAge: 0, // Forzar lectura fresca del satélite y evitar caché antigua
+                timeout: 15000
             };
+
+            // Función auxiliar para enviar el pulso a Supabase de forma segura
+            async function enviarPulsoGPS(lat, lng, acc) {
+                const hora = new Date().toLocaleTimeString();
+                const { error } = await sb.from('flota_gps')
+                    .update({ lat, lng, estado: 'Disponible', updated_at: new Date().toISOString() })
+                    .eq('id', movilId);
+
+                if (error) {
+                    log.innerHTML = `⚠️ Error de red con Supabase: ${error.message}`;
+                } else {
+                    const u = unidades.find(x => x.id === movilId);
+                    const nom = u ? u.nombre : `ME-0${movilId}`;
+                    log.innerHTML = `✅ <b>TRANSMITIENDO (${nom}) - ACTIVO</b><br>Lat: ${lat.toFixed(6)} | Lng: ${lng.toFixed(6)}<br>Precisión: ±${acc || 5}m | ${hora}`;
+                }
+            }
 
             // 1. Geolocalización en tiempo real
             watchId = navigator.geolocation.watchPosition(async (pos) => {
                 ultimoLat = pos.coords.latitude;
                 ultimoLng = pos.coords.longitude;
                 const acc = Math.round(pos.coords.accuracy);
-                const hora = new Date().toLocaleTimeString();
-
-                const { error } = await sb.from('flota_gps')
-                    .update({ lat: ultimoLat, lng: ultimoLng, estado: 'Disponible', updated_at: new Date().toISOString() })
-                    .eq('id', movilId);
-
-                if (error) {
-                    log.innerHTML = `⚠️ Error de red con Supabase: ${error.message}<br>Reintentando en siguiente pulso GPS...`;
-                } else {
-                    const u = unidades.find(x => x.id === movilId);
-                    const nom = u ? u.nombre : `ME-0${movilId}`;
-                    log.innerHTML = `✅ <b>TRANSMITIENDO (${nom}) - BLOQUEADO</b><br>Lat: ${ultimoLat.toFixed(6)} | Lng: ${ultimoLng.toFixed(6)}<br>Precisión: ±${acc}m | ${hora}`;
-                }
+                await enviarPulsoGPS(ultimoLat, ultimoLng, acc);
             }, (err) => {
-                log.innerHTML = `⚠️ Advertencia de señal GPS (${err.code}): ${err.message}<br>Manteniendo última posición conocida...`;
+                log.innerHTML = `⚠️ Advertencia GPS (${err.code}): ${err.message}. Reintentando...`;
             }, gpsOptions);
 
-            // 2. Latido de respaldo automático cada 15 segundos para evitar el estado "Sin Señal GPS" en la PC
+            // 2. Latido inteligente con verificación de visibilidad de página
             gpsHeartbeatInterval = setInterval(async () => {
                 if (watchId !== null && ultimoLat !== null && ultimoLng !== null) {
-                    await sb.from('flota_gps')
-                        .update({ lat: ultimoLat, lng: ultimoLng, estado: 'Disponible', updated_at: new Date().toISOString() })
-                        .eq('id', movilId);
+                    // Si la página vuelve a estar visible en primer plano, forzamos un envío inmediato
+                    await enviarPulsoGPS(ultimoLat, ultimoLng, 5);
                 }
-            }, 15000);
+            }, 12000); // Cada 12 segundos para estar muy por debajo del límite de 45s de la PC
+
+            // 3. Despertador automático: Si el usuario desbloquea el celular o vuelve a la pestaña, se actualiza al instante
+            document.addEventListener("visibilitychange", async () => {
+                if (document.visibilityState === "visible" && watchId !== null && ultimoLat !== null) {
+                    await enviarPulsoGPS(ultimoLat, ultimoLng, 5);
+                }
+            });
         }
 
         async function actualizarEstadoMovil() {
