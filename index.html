@@ -1082,6 +1082,32 @@
             });
         }
 
+            // 1. Geolocalización en tiempo real
+            watchId = navigator.geolocation.watchPosition(async (pos) => {
+                ultimoLat = pos.coords.latitude;
+                ultimoLng = pos.coords.longitude;
+                const acc = Math.round(pos.coords.accuracy);
+                await enviarPulsoGPS(ultimoLat, ultimoLng, acc);
+            }, (err) => {
+                log.innerHTML = `⚠️ Advertencia GPS (${err.code}): ${err.message}. Reintentando...`;
+            }, gpsOptions);
+
+            // 2. Latido inteligente con verificación de visibilidad de página
+            gpsHeartbeatInterval = setInterval(async () => {
+                if (watchId !== null && ultimoLat !== null && ultimoLng !== null) {
+                    // Si la página vuelve a estar visible en primer plano, forzamos un envío inmediato
+                    await enviarPulsoGPS(ultimoLat, ultimoLng, 5);
+                }
+            }, 12000); // Cada 12 segundos para estar muy por debajo del límite de 45s de la PC
+
+            // 3. Despertador automático: Si el usuario desbloquea el celular o vuelve a la pestaña, se actualiza al instante
+            document.addEventListener("visibilitychange", async () => {
+                if (document.visibilityState === "visible" && watchId !== null && ultimoLat !== null) {
+                    await enviarPulsoGPS(ultimoLat, ultimoLng, 5);
+                }
+            });
+        }
+
         async function actualizarEstadoMovil() {
             const selectMovil = document.getElementById('mobile-unit-select');
             if(!selectMovil) return;
