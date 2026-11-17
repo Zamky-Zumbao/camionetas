@@ -11,6 +11,39 @@
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         
+        /* PANTALLA DE ACCESO / LOGIN DE ROLES */
+        #role-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #020617;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .role-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .role-card h1 { font-size: 20px; color: #38bdf8; margin-bottom: 6px; }
+        .role-card p { font-size: 13px; color: #94a3b8; margin-bottom: 20px; }
+        .role-btn {
+            width: 100%; padding: 14px; font-size: 14px; font-weight: 700;
+            border-radius: 8px; border: none; cursor: pointer; margin-bottom: 12px;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn-mobile-role { background: #0284c7; color: #fff; }
+        .btn-control-role { background: #7c2d12; color: #fed7aa; border: 1px solid #ea580c; }
+        
+        #password-box { display: none; margin-top: 15px; text-align: left; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155; }
+
         #mode-bar {
             background: #020617;
             border-bottom: 1px solid #334155;
@@ -60,7 +93,6 @@
         .unit-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
         .unit-title { font-weight: 700; font-size: 14px; color: #f8fafc; display: flex; align-items: center; gap: 6px; }
         .rank-badge { background: #eab308; color: #000; font-size: 11px; font-weight: 800; padding: 1px 6px; border-radius: 4px; }
-        .zone-pill { font-size: 11px; background: #334155; padding: 2px 7px; border-radius: 4px; color: #e2e8f0; }
         .unit-meta { font-size: 11.5px; color: #94a3b8; line-height: 1.45; margin-bottom: 8px; }
         .unit-footer { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
         .state-badge { font-size: 10px; padding: 3px 7px; border-radius: 4px; font-weight: 700; text-transform: uppercase; }
@@ -69,23 +101,14 @@
         .st-offline { background: #475569; color: #cbd5e1; border: 1px dashed #94a3b8; }
         .mini-btn { padding: 4px 8px; font-size: 11px; border-radius: 4px; border: none; cursor: pointer; font-weight: 600; }
 
-        /* Controles Flotantes del Mapa */
         .map-controls { position: absolute; top: 12px; right: 12px; z-index: 1000; display: flex; flex-direction: column; gap: 6px; }
         .map-btn { background: #0f172a; border: 1px solid #475569; color: #f8fafc; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
         
-        /* Panel Flotante de Filtros de Capas / Visibilidad */
         .layer-control-panel {
-            position: absolute;
-            top: 12px;
-            left: 12px;
-            z-index: 1000;
-            background: rgba(15, 23, 42, 0.92);
-            border: 1px solid #334155;
-            backdrop-filter: blur(6px);
-            border-radius: 8px;
-            padding: 10px 14px;
-            max-width: 240px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            position: absolute; top: 12px; left: 12px; z-index: 1000;
+            background: rgba(15, 23, 42, 0.92); border: 1px solid #334155;
+            backdrop-filter: blur(6px); border-radius: 8px; padding: 10px 14px;
+            max-width: 240px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         }
         .layer-control-panel h4 { margin: 0 0 8px 0; font-size: 12px; color: #38bdf8; text-transform: uppercase; border-bottom: 1px solid #334155; padding-bottom: 4px; }
         .checkbox-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 8px; max-height: 160px; overflow-y: auto; }
@@ -99,13 +122,8 @@
         .big-btn { width: 100%; padding: 13px; font-size: 14px; border-radius: 8px; border: none; font-weight: 800; cursor: pointer; margin-top: 8px; display: block; text-align: center; text-decoration: none; }
 
         #mobile-dispatch-box {
-            display: none;
-            background: #450a0a;
-            border: 2px solid #ef4444;
-            border-radius: 10px;
-            padding: 14px;
-            margin-bottom: 16px;
-            animation: pulseBorder 1.5s infinite;
+            display: none; background: #450a0a; border: 2px solid #ef4444; border-radius: 10px;
+            padding: 14px; margin-bottom: 16px; animation: pulseBorder 1.5s infinite;
         }
         @keyframes pulseBorder {
             0%, 100% { border-color: #ef4444; }
@@ -124,6 +142,29 @@
 </head>
 <body>
 
+    <!-- PANTALLA DE SELECCIÓN DE ROL / ACCESO -->
+    <div id="role-screen">
+        <div class="role-card">
+            <h1>🚨 EMERGENCIAS LAS CONDES</h1>
+            <p>Selecciona tu rol operativo para ingresar al sistema</p>
+            
+            <button class="role-btn btn-mobile-role" onclick="entrarComoMovil()">📱 SOY MÓVIL (Terminal GPS)</button>
+            <button class="role-btn btn-control-role" onclick="mostrarControlLogin()">🖥️ SOY CONTROL (Central)</button>
+
+            <div id="password-box">
+                <div class="form-group" style="margin-bottom:8px;">
+                    <label>Ingresa Contraseña de Control</label>
+                    <input type="password" id="ctrl-pass-input" class="form-control" placeholder="Clave (NVG o 123)" onkeypress="if(event.key==='Enter') validarClaveControl()">
+                </div>
+                <button class="btn" style="width:100%;" onclick="validarClaveControl()">Ingresar a Central</button>
+            </div>
+            
+            <div style="font-size: 11px; color: #64748b; margin-top: 15px;">
+                Desarrollado por Nelson Vera
+            </div>
+        </div>
+    </div>
+
     <div id="mode-bar">
         <div class="brand">
             <span>🚨 EMERGENCIAS LAS CONDES</span>
@@ -140,7 +181,7 @@
     </div>
 
     <!-- MODO 1: CENTRAL DE MONITOREO -->
-    <div id="central-view">
+    <div id="central-view" style="display:none;">
         <div id="sidebar">
             <div class="panel-section">
                 <div class="form-group">
@@ -187,7 +228,6 @@
         <div id="map-wrapper">
             <div id="map"></div>
             
-            <!-- Panel Flotante con Checkboxes para Activar/Desactivar cada Móvil -->
             <div class="layer-control-panel">
                 <h4>🚐 Visibilidad de Flota</h4>
                 <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:10px;">
@@ -220,16 +260,9 @@
 
             <div class="form-group">
                 <label>Seleccionar Unidad</label>
-            <select id="mobile-unit-select" class="form-control" style="font-size:15px; padding:10px;" onchange="verificarDespachoMovilSeleccionado()">
-                <option value="1">ME-01</option>
-                <option value="2">ME-02</option>
-                <option value="3">ME-03</option>
-                <option value="4">ME-04</option>
-                <option value="5">ME-05</option>
-                <option value="6">ME-06</option>
-                <option value="7">ME-07</option>
-                <option value="8">ME-08</option>
-            </select>
+                <select id="mobile-unit-select" class="form-control" style="font-size:15px; padding:10px;" onchange="verificarDespachoMovilSeleccionado()">
+                    <!-- Se llena automáticamente con los 8 móviles limpios -->
+                </select>
             </div>
 
             <div class="form-group">
@@ -261,17 +294,66 @@
         const SUPABASE_KEY = "sb_publishable_Vc7-e-AjorgMgj45SmAL5g_Xr0glJjx";
         const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+        let esModoVisorCentral = false;
+
+        // GESTIÓN DE ROLES DESDE LA PANTALLA DE BIENVENIDA
+        function entrarComoMovil() {
+            document.getElementById('role-screen').style.display = 'none';
+            switchMode('mobile');
+        }
+
+        function mostrarControlLogin() {
+            document.getElementById('password-box').style.display = 'block';
+            document.getElementById('ctrl-pass-input').focus();
+        }
+
+        function validarClaveControl() {
+            const pass = document.getElementById('ctrl-pass-input').value.trim();
+            if (pass === "NVG") {
+                esModoVisorCentral = false;
+                document.getElementById('role-screen').style.display = 'none';
+                switchMode('central');
+            } else if (pass === "123") {
+                esModoVisorCentral = true;
+                document.getElementById('role-screen').style.display = 'none';
+                switchMode('central');
+                aplicarModoVisorVisual();
+            } else {
+                alert("❌ Contraseña incorrecta. Utiliza NVG (Control Total) o 123 (Modo Visor).");
+            }
+        }
+
+        function aplicarModoVisorVisual() {
+            let banner = document.getElementById('visor-banner');
+            if (!banner) {
+                banner = document.createElement('div');
+                banner.id = 'visor-banner';
+                banner.style.cssText = "background: #78350f; color: #fef3c7; text-align: center; padding: 6px; font-size: 12px; font-weight: 700; border-bottom: 1px solid #d97706;";
+                banner.innerHTML = "👁️ MODO VISOR (Solo Lectura - Supervisión)";
+                const sidebar = document.getElementById('sidebar');
+                sidebar.insertBefore(banner, sidebar.firstChild);
+            }
+            // Deshabilitar botones de despacho y control
+            setTimeout(() => {
+                document.querySelectorAll('.mini-btn.btn-danger, .mini-btn.btn-success, .map-btn, #tipo-emergencia, #dir-input').forEach(el => {
+                    el.disabled = true;
+                    el.style.opacity = '0.5';
+                    el.style.cursor = 'not-allowed';
+                });
+            }, 200);
+        }
+
         const geojsonZonas = {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "MultiPolygon", "coordinates": [[[[-70.584119, -33.431682], [-70.58334, -33.431641], [-70.582216, -33.431579], [-70.580727, -33.431481], [-70.579268, -33.431386], [-70.578513, -33.431328], [-70.57735, -33.431304], [-70.576117, -33.431283], [-70.574702, -33.431238], [-70.572276, -33.431151], [-70.570565, -33.431119], [-70.568992, -33.431069], [-70.5667, -33.431012], [-70.565082, -33.43097], [-70.564688, -33.429312], [-70.563776, -33.425613], [-70.563919, -33.425082], [-70.564259, -33.424008], [-70.564313, -33.423386], [-70.564328, -33.419444], [-70.564358, -33.417736], [-70.564555, -33.417308], [-70.564811, -33.416617], [-70.565506, -33.41437], [-70.5667, -33.41031], [-70.567996, -33.410633], [-70.5681, -33.410727], [-70.56882, -33.411577], [-70.569907, -33.41281], [-70.571147, -33.414207], [-70.571325, -33.414296], [-70.572017, -33.414547], [-70.574187, -33.41522], [-70.576092, -33.415794], [-70.577978, -33.416382], [-70.57819, -33.416458], [-70.579211, -33.416927], [-70.579438, -33.417032], [-70.579867, -33.417195], [-70.580508, -33.417413], [-70.581351, -33.417701], [-70.582781, -33.418185], [-70.582556, -33.41867], [-70.584262, -33.419238], [-70.585167, -33.4195], [-70.586765, -33.419808], [-70.589679, -33.420403], [-70.593616, -33.421185], [-70.594368, -33.421358], [-70.596532, -33.4215], [-70.596788, -33.421524], [-70.594792, -33.423041], [-70.593197, -33.424298], [-70.5917, -33.425448], [-70.590566, -33.426323], [-70.588895, -33.427658], [-70.587088, -33.429176], [-70.585532, -33.430516], [-70.585029, -33.430983], [-70.584664, -33.4314], [-70.584489, -33.431621], [-70.584435, -33.431725], [-70.584119, -33.431682]]]]}, "properties": {"id": 4, "Zonas": "Zona 1 Sur", "fill": "#F58231"}}, {"type": "Feature", "geometry": {"type": "MultiPolygon", "coordinates": [[[[-70.597827, -33.420746], [-70.596794, -33.421526], [-70.596726, -33.421571], [-70.596788, -33.421524], [-70.596532, -33.4215], [-70.594368, -33.421358], [-70.593616, -33.421185], [-70.589679, -33.420403], [-70.586765, -33.419808], [-70.585167, -33.4195], [-70.584262, -33.419238], [-70.582556, -33.41867], [-70.582781, -33.418185], [-70.581351, -33.417701], [-70.580508, -33.417413], [-70.579867, -33.417195], [-70.579438, -33.417032], [-70.579211, -33.416927], [-70.57819, -33.416458], [-70.577978, -33.416382], [-70.576092, -33.415794], [-70.574187, -33.41522], [-70.572017, -33.414547], [-70.571325, -33.414296], [-70.571147, -33.414207], [-70.569907, -33.41281], [-70.56882, -33.411577], [-70.5681, -33.410727], [-70.567996, -33.410633], [-70.566701, -33.41031], [-70.567221, -33.408779], [-70.56828, -33.406111], [-70.568606, -33.405248], [-70.569359, -33.40309], [-70.570117, -33.400953], [-70.57115, -33.397945], [-70.577517, -33.400426], [-70.580098, -33.401522], [-70.582266, -33.402429], [-70.583431, -33.402924], [-70.58379, -33.403131], [-70.584375, -33.403475], [-70.585022, -33.4038], [-70.585429, -33.403957], [-70.586231, -33.404207], [-70.587162, -33.404418], [-70.587928, -33.404539], [-70.588434, -33.404609], [-70.589218, -33.404764], [-70.590258, -33.405036], [-70.590807, -33.405223], [-70.591489, -33.405463], [-70.592689, -33.405905], [-70.595046, -33.406742], [-70.596353, -33.407202], [-70.597266, -33.407556], [-70.59819, -33.40792], [-70.599123, -33.408195], [-70.600141, -33.408229], [-70.600966, -33.408237], [-70.602162, -33.409312], [-70.602467, -33.409971], [-70.603414, -33.411364], [-70.603821, -33.41205], [-70.605116, -33.414011], [-70.605404, -33.4144], [-70.605723, -33.414852], [-70.60655, -33.415575], [-70.606782, -33.415855], [-70.606823, -33.415998], [-70.606782, -33.416076], [-70.60655, -33.416121], [-70.605625, -33.416595], [-70.604887, -33.416981], [-70.604756, -33.417053], [-70.604311, -33.417159], [-70.603873, -33.41721], [-70.603145, -33.417293], [-70.602532, -33.417446], [-70.601932, -33.417709], [-70.601685, -33.417919], [-70.601621, -33.417949], [-70.60155, -33.418049], [-70.6014, -33.41817], [-70.59856, -33.420232], [-70.597827, -33.420746]]]]}, "properties": {"id": 1, "Zonas": "Zona 1 Norte", "fill": "#911EB4"}}, {"type": "Feature", "geometry": {"type": "MultiPolygon", "coordinates": [[[[-70.56506, -33.408218], [-70.567294, -33.408596], [-70.567221, -33.408779], [-70.566701, -33.41031], [-70.567996, -33.410633], [-70.5667, -33.41031], [-70.565506, -33.41437], [-70.564811, -33.416617], [-70.564555, -33.417308], [-70.564358, -33.417736], [-70.564328, -33.419444], [-70.564313, -33.423386], [-70.564259, -33.424008], [-70.563919, -33.425082], [-70.563776, -33.425613], [-70.564688, -33.429312], [-70.565082, -33.43097], [-70.565099, -33.430971], [-70.556538, -33.430573], [-70.554319, -33.430488], [-70.5527, -33.430335], [-70.549341, -33.42997], [-70.545148, -33.429494], [-70.53958, -33.428865], [-70.539162, -33.428857], [-70.538694, -33.426971], [-70.538272, -33.424877], [-70.538073, -33.423687], [-70.53787, -33.422817], [-70.537755, -33.422511], [-70.537689, -33.422226], [-70.537666, -33.422012], [-70.537671, -33.421782], [-70.537775, -33.420984], [-70.537867, -33.420325], [-70.537913, -33.419854], [-70.537938, -33.419278], [-70.538007, -33.418928], [-70.538172, -33.418337], [-70.538585, -33.417203], [-70.538811, -33.41671], [-70.539038, -33.416326], [-70.539178, -33.415901], [-70.539419, -33.415264], [-70.539661, -33.414677], [-70.539832, -33.414306], [-70.540132, -33.413872], [-70.540394, -33.413452], [-70.540727, -33.413025], [-70.540816, -33.412821], [-70.540974, -33.412447], [-70.541155, -33.411982], [-70.541302, -33.41157], [-70.54174, -33.410505], [-70.542035, -33.409764], [-70.542292, -33.409161], [-70.542567, -33.409231], [-70.543005, -33.409327], [-70.543501, -33.409358], [-70.543804, -33.409327], [-70.544086, -33.409269], [-70.544412, -33.40914], [-70.544687, -33.408929], [-70.544901, -33.408689], [-70.54502, -33.408494], [-70.545079, -33.408366], [-70.54513, -33.408146], [-70.545122, -33.407897], [-70.545201, -33.407895], [-70.547687, -33.408073], [-70.550583, -33.408296], [-70.551799, -33.408405], [-70.552314, -33.408447], [-70.552794, -33.40846], [-70.553349, -33.408413], [-70.553604, -33.408371], [-70.555678, -33.407995], [-70.557182, -33.407718], [-70.558462, -33.407597], [-70.560228, -33.407493], [-70.561663, -33.407449], [-70.562322, -33.407525], [-70.56506, -33.408218]]]]}, "properties": {"id": 5, "Zonas": "Zona 2 Sur", "fill": "#4363D8"}}, {"type": "Feature", "geometry": {"type": "MultiPolygon", "coordinates": [[[[-70.566338, -33.396143], [-70.571147, -33.397955], [-70.570117, -33.400953], [-70.569359, -33.40309], [-70.568606, -33.405248], [-70.56828, -33.406111], [-70.567294, -33.408596], [-70.56506, -33.408218], [-70.562322, -33.407525], [-70.561663, -33.407449], [-70.560228, -33.407493], [-70.558462, -33.407597], [-70.557182, -33.407718], [-70.555678, -33.407995], [-70.553604, -33.408371], [-70.553349, -33.408413], [-70.552794, -33.40846], [-70.552314, -33.408447], [-70.551799, -33.408405], [-70.550583, -33.408296], [-70.547687, -33.408073], [-70.545201, -33.407895], [-70.545122, -33.407897], [-70.545047, -33.407552], [-70.544944, -33.407306], [-70.544898, -33.407192], [-70.544749, -33.406945], [-70.544556, -33.406771], [-70.544394, -33.406627], [-70.54414, -33.406472], [-70.543911, -33.406371], [-70.543516, -33.406212], [-70.543974, -33.404462], [-70.544147, -33.403672], [-70.544361, -33.402677], [-70.544422, -33.401454], [-70.544463, -33.399771], [-70.544361, -33.396831], [-70.544371, -33.396117], [-70.544555, -33.395463], [-70.545094, -33.394672], [-70.545735, -33.393831], [-70.546539, -33.392956], [-70.546957, -33.392403], [-70.547476, -33.391417], [-70.54828, -33.389854], [-70.559884, -33.393967], [-70.566338, -33.396143]]]]}, "properties": {"id": 2, "Zonas": "Zona 2 Norte", "fill": "#3CB44B"}}, {"type": "Feature", "geometry": {"type": "MultiPolygon", "coordinates": [[[[-70.543338, -33.406167], [-70.543517, -33.406211], [-70.543911, -33.406371], [-70.54414, -33.406472], [-70.544394, -33.406627], [-70.544556, -33.406771], [-70.544749, -33.406945], [-70.544898, -33.407192], [-70.544944, -33.407306], [-70.545047, -33.407552], [-70.545122, -33.4079], [-70.54513, -33.408146], [-70.545079, -33.408366], [-70.54502, -33.408494], [-70.544901, -33.408689], [-70.544687, -33.408929], [-70.544412, -33.40914], [-70.544086, -33.409269], [-70.543804, -33.409327], [-70.543501, -33.409358], [-70.543005, -33.409327], [-70.542567, -33.409231], [-70.542292, -33.409161], [-70.542035, -33.409764], [-70.54174, -33.410505], [-70.541302, -33.41157], [-70.541155, -33.411982], [-70.540974, -33.412447], [-70.540816, -33.412821], [-70.540727, -33.413025], [-70.540394, -33.413452], [-70.540132, -33.413872], [-70.539832, -33.414306], [-70.539661, -33.414677], [-70.539419, -33.415264], [-70.539178, -33.415901], [-70.539038, -33.416326], [-70.538811, -33.41671], [-70.538585, -33.417203], [-70.538172, -33.418337], [-70.538007, -33.418928], [-70.537938, -33.419278], [-70.537913, -33.419854], [-70.537867, -33.420325], [-70.537775, -33.420984], [-70.537671, -33.421782], [-70.537666, -33.422012], [-70.537689, -33.422226], [-70.537755, -33.422511], [-70.53787, -33.422817], [-70.538073, -33.423687], [-70.538272, -33.424877], [-70.538694, -33.426971], [-70.539162, -33.428857], [-70.539066, -33.431059], [-70.538862, -33.431798], [-70.538404, -33.432767], [-70.537997, -33.433463], [-70.537534, -33.433397], [-70.536696, -33.433287], [-70.535238, -33.433111], [-70.534429, -33.433004], [-70.532921, -33.432818], [-70.532085, -33.432715], [-70.527936, -33.432218], [-70.523529, -33.431661], [-70.521742, -33.430472], [-70.519869, -33.428297], [-70.519421, -33.424593], [-70.519299, -33.422215], [-70.520032, -33.420583], [-70.519829, -33.419326], [-70.518485, -33.419394], [-70.517915, -33.41885], [-70.517752, -33.418], [-70.516612, -33.417321], [-70.515594, -33.416641], [-70.514088, -33.415893], [-70.512907, -33.416267], [-70.511726, -33.417389], [-70.510505, -33.418068], [-70.508835, -33.418578], [-70.507451, -33.419428], [-70.506392, -33.419156], [-70.505578, -33.418714], [-70.505212, -33.418068], [-70.505374, -33.417151], [-70.505578, -33.416539], [-70.5057, -33.416029], [-70.505171, -33.414534], [-70.504682, -33.412971], [-70.502524, -33.411305], [-70.501221, -33.410184], [-70.500733, -33.4093], [-70.501099, -33.408552], [-70.501099, -33.40811], [-70.502117, -33.406853], [-70.502158, -33.405595], [-70.501914, -33.405119], [-70.501954, -33.404711], [-70.502117, -33.404576], [-70.501751, -33.402774], [-70.501181, -33.401924], [-70.50057, -33.400599], [-70.499389, -33.399749], [-70.502646, -33.400191], [-70.504112, -33.400293], [-70.504865, -33.400186], [-70.506168, -33.399689], [-70.506779, -33.399519], [-70.507249, -33.399484], [-70.50794, -33.399491], [-70.509292, -33.399506], [-70.509529, -33.399516], [-70.509759, -33.399542], [-70.510125, -33.399611], [-70.511455, -33.39998], [-70.512614, -33.400322], [-70.513098, -33.400464], [-70.513254, -33.40053], [-70.51356, -33.400739], [-70.513736, -33.400845], [-70.513925, -33.400912], [-70.514095, -33.400947], [-70.514444, -33.400988], [-70.515223, -33.401072], [-70.516277, -33.401181], [-70.51664, -33.401217], [-70.517174, -33.401258], [-70.517611, -33.401292], [-70.518292, -33.40134], [-70.519058, -33.401411], [-70.519582, -33.401457], [-70.5197, -33.401461], [-70.519818, -33.401454], [-70.519951, -33.401443], [-70.520187, -33.401413], [-70.520317, -33.401414], [-70.520994, -33.401447], [-70.521324, -33.401452], [-70.521623, -33.401445], [-70.522095, -33.401418], [-70.52299, -33.401349], [-70.524385, -33.40125], [-70.525374, -33.401184], [-70.526684, -33.401072], [-70.527529, -33.401011], [-70.527927, -33.400979], [-70.528759, -33.400905], [-70.529338, -33.400886], [-70.52967, -33.400892], [-70.530024, -33.400917], [-70.530427, -33.400967], [-70.531004, -33.401079], [-70.531468, -33.4012], [-70.532068, -33.40141], [-70.53278, -33.401756], [-70.533317, -33.402075], [-70.533826, -33.402442], [-70.534452, -33.402879], [-70.534844, -33.403162], [-70.53538, -33.403557], [-70.535857, -33.403865], [-70.536562, -33.404227], [-70.5369, -33.404381], [-70.537413, -33.404611], [-70.537745, -33.404743], [-70.538293, -33.404945], [-70.538679, -33.405065], [-70.539036, -33.40516], [-70.540052, -33.405389], [-70.542465, -33.405912], [-70.542862, -33.406012], [-70.543338, -33.406167]]]]}, "properties": {"id": 6, "Zonas": "Zona 3 Sur", "fill": "#FFE119"}}, {"type": "Feature", "geometry": {"type": "MultiPolygon", "coordinates": [[[[-70.546323, -33.388943], [-70.548298, -33.389844], [-70.547476, -33.391417], [-70.546957, -33.392403], [-70.546539, -33.392956], [-70.545735, -33.393831], [-70.545094, -33.394672], [-70.544555, -33.395463], [-70.544371, -33.396117], [-70.544361, -33.396831], [-70.544463, -33.399771], [-70.544422, -33.401454], [-70.544361, -33.402677], [-70.544147, -33.403672], [-70.543974, -33.404462], [-70.543517, -33.406211], [-70.543338, -33.406167], [-70.542862, -33.406012], [-70.542465, -33.405912], [-70.540052, -33.405389], [-70.539036, -33.40516], [-70.538679, -33.405065], [-70.538293, -33.404945], [-70.537745, -33.404743], [-70.537413, -33.404611], [-70.5369, -33.404381], [-70.536562, -33.404227], [-70.535857, -33.403865], [-70.53538, -33.403557], [-70.534844, -33.403162], [-70.534452, -33.402879], [-70.533826, -33.402442], [-70.533317, -33.402075], [-70.53278, -33.401756], [-70.532068, -33.40141], [-70.531468, -33.4012], [-70.531004, -33.401079], [-70.530427, -33.400967], [-70.530024, -33.400917], [-70.52967, -33.400892], [-70.529338, -33.400886], [-70.528759, -33.400905], [-70.527927, -33.400979], [-70.527529, -33.401011], [-70.526684, -33.401072], [-70.525374, -33.401184], [-70.524385, -33.40125], [-70.52299, -33.401349], [-70.522095, -33.401418], [-70.521623, -33.401445], [-70.521324, -33.401452], [-70.520994, -33.401447], [-70.520317, -33.401414], [-70.520187, -33.401413], [-70.519951, -33.401443], [-70.519818, -33.401454], [-70.5197, -33.401461], [-70.519582, -33.401457], [-70.519058, -33.401411], [-70.518292, -33.40134], [-70.517611, -33.401292], [-70.517174, -33.401258], [-70.51664, -33.401217], [-70.516277, -33.401181], [-70.515223, -33.401072], [-70.514444, -33.400988], [-70.514095, -33.400947], [-70.513925, -33.400912], [-70.513736, -33.400845], [-70.51356, -33.400739], [-70.513254, -33.40053], [-70.513098, -33.400464], [-70.512614, -33.400322], [-70.511455, -33.39998], [-70.510125, -33.399611], [-70.509759, -33.399542], [-70.509529, -33.399516], [-70.509292, -33.399506], [-70.50794, -33.399491], [-70.507249, -33.399484], [-70.506779, -33.399519], [-70.506168, -33.399689], [-70.504865, -33.400186], [-70.504112, -33.400293], [-70.502646, -33.400191], [-70.499389, -33.399749], [-70.499724, -33.39999], [-70.497749, -33.400781], [-70.496772, -33.400781], [-70.495143, -33.400441], [-70.494329, -33.400305], [-70.493433, -33.399966], [-70.493433, -33.399286], [-70.493433, -33.399014], [-70.49384, -33.39779], [-70.494003, -33.39677], [-70.493759, -33.396158], [-70.493352, -33.395547], [-70.492863, -33.394391], [-70.492782, -33.394119], [-70.4927, -33.393031], [-70.4927, -33.392011], [-70.493026, -33.390923], [-70.493107, -33.390243], [-70.4927, -33.389427], [-70.492212, -33.388], [-70.49156, -33.387116], [-70.49156, -33.386164], [-70.49156, -33.385212], [-70.492537, -33.384328], [-70.493433, -33.383852], [-70.49498, -33.383852], [-70.495388, -33.384192], [-70.495795, -33.385688], [-70.496528, -33.386844], [-70.498156, -33.385892], [-70.498726, -33.383716], [-70.498808, -33.382764], [-70.496202, -33.38256], [-70.496528, -33.380724], [-70.492782, -33.380316], [-70.4927, -33.378888], [-70.493026, -33.377324], [-70.491153, -33.376168], [-70.49213, -33.374672], [-70.494085, -33.372904], [-70.494248, -33.370796], [-70.493291, -33.369198], [-70.492578, -33.36896], [-70.492069, -33.368696], [-70.493851, -33.367821], [-70.494003, -33.3672], [-70.49494, -33.366418], [-70.495438, -33.366877], [-70.496263, -33.366987], [-70.497434, -33.36697], [-70.498635, -33.367038], [-70.499276, -33.367157], [-70.501067, -33.367991], [-70.503663, -33.369189], [-70.504722, -33.369674], [-70.505913, -33.370014], [-70.507714, -33.370184], [-70.509506, -33.370405], [-70.511521, -33.370745], [-70.512895, -33.371076], [-70.515939, -33.372003], [-70.51943, -33.373465], [-70.521995, -33.37463], [-70.523889, -33.375386], [-70.52512, -33.375956], [-70.526047, -33.376423], [-70.526963, -33.377018], [-70.52796, -33.377826], [-70.528999, -33.379024], [-70.531564, -33.381489], [-70.534139, -33.384039], [-70.537193, -33.385416], [-70.542048, -33.387388], [-70.546323, -33.388943]]]]}, "properties": {"id": 3, "Zonas": "Zona 3 Norte", "fill": "#E6194B"}}]};
 
         let unidadesBase = [
-            { id: 1, nombre: "ME-01", zona: "Zona 1 Norte", patente: "SR-101", tripulacion: "3 Personas", estado: "Sin Señal", lat: -33.4135, lng: -70.5985, updated_at: null },
-            { id: 2, nombre: "ME-02", zona: "Zona 1 Sur",   patente: "SR-102", tripulacion: "3 Personas", estado: "Sin Señal", lat: -33.4255, lng: -70.5790, updated_at: null },
-            { id: 3, nombre: "ME-03", zona: "Zona 2 Norte", patente: "SR-103", tripulacion: "3 Personas", estado: "Sin Señal", lat: -33.3975, lng: -70.5560, updated_at: null },
-            { id: 4, nombre: "ME-04", zona: "Zona 2 Sur",   patente: "SR-104", tripulacion: "3 Personas", estado: "Sin Señal", lat: -33.4215, lng: -70.5510, updated_at: null },
-            { id: 5, nombre: "ME-05", zona: "Zona 3 Norte", patente: "SR-105", tripulacion: "3 Personas", estado: "Sin Señal", lat: -33.3860, lng: -70.5180, updated_at: null },
-            { id: 6, nombre: "ME-06", zona: "Zona 3 Sur",   patente: "SR-106", tripulacion: "3 Personas", estado: "Sin Señal", lat: -33.4170, lng: -70.5170, updated_at: null },
-            { id: 7, nombre: "ME-07", zona: "Multi-Zona",   patente: "RS-107", tripulacion: "3 Personas", estado: "Sin Señal", lat: -33.4090, lng: -70.5660, updated_at: null },
-            { id: 8, nombre: "ME-08", zona: "Zona 1 Norte", patente: "SR-108", tripulacion: "3 Personas", estado: "Sin Señal", lat: -33.4055, lng: -70.5840, updated_at: null }
+            { id: 1, nombre: "ME-01", zona: "Zona 1 Norte", patente: "SR-101", tripulacion: "1 Bombero + 1 Paramédico", estado: "Sin Señal", lat: -33.4135, lng: -70.5985, updated_at: null },
+            { id: 2, nombre: "ME-02", zona: "Zona 1 Sur",   patente: "SR-102", tripulacion: "1 Bombero + 1 Paramédico", estado: "Sin Señal", lat: -33.4255, lng: -70.5790, updated_at: null },
+            { id: 3, nombre: "ME-03", zona: "Zona 2 Norte", patente: "SR-103", tripulacion: "1 Bombero + 1 Paramédico", estado: "Sin Señal", lat: -33.3975, lng: -70.5560, updated_at: null },
+            { id: 4, nombre: "ME-04", zona: "Zona 2 Sur",   patente: "SR-104", tripulacion: "1 Bombero + 1 Paramédico", estado: "Sin Señal", lat: -33.4215, lng: -70.5510, updated_at: null },
+            { id: 5, nombre: "ME-05", zona: "Zona 3 Norte", patente: "SR-105", tripulacion: "1 Bombero + 1 Paramédico", estado: "Sin Señal", lat: -33.3860, lng: -70.5180, updated_at: null },
+            { id: 6, nombre: "ME-06", zona: "Zona 3 Sur",   patente: "SR-106", tripulacion: "1 Bombero + 1 Paramédico", estado: "Sin Señal", lat: -33.4170, lng: -70.5170, updated_at: null },
+            { id: 7, nombre: "ME-07", zona: "Multi-Zona",   patente: "RS-107", tripulacion: "2 Bomberos + 1 Paramédico", estado: "Sin Señal", lat: -33.4090, lng: -70.5660, updated_at: null },
+            { id: 8, nombre: "ME-08", zona: "Zona 1 Norte", patente: "SR-108", tripulacion: "1 Bombero + 1 Paramédico", estado: "Sin Señal", lat: -33.4055, lng: -70.5840, updated_at: null }
         ];
 
         let unidades = [...unidadesBase];
@@ -473,6 +555,7 @@
         }
 
         map.on('click', function(e) {
+            if (esModoVisorCentral) return; // Bloquear clics de incidente si es visor
             const lat = e.latlng.lat;
             const lng = e.latlng.lng;
             const txt = `Punto Mapa (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
@@ -541,12 +624,13 @@
                 const ultimaVez = u.updated_at ? new Date(u.updated_at).toLocaleTimeString() : 'Inactivo / Turno Cerrado';
                 const ultimaUbicacionTexto = `<div style="font-size:10.5px; color:#94a3b8; margin-top:2px;">Ult. Pos: (${u.lat.toFixed(4)}, ${u.lng.toFixed(4)}) — ${ultimaVez}</div>`;
 
-                const estadoBtn = u.estado === 'Disponible' 
-                    ? `<button class="mini-btn btn-danger" onclick="despacharUnidad(${u.id})">Despachar</button>`
-                    : `<button class="mini-btn btn-success" onclick="liberarUnidad(${u.id})">Liberar</button>`;
+                const deshabilitarControles = esModoVisorCentral ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : '';
 
-                // NUEVO: Botón de Control Total (Bota usuario / Limpia GPS unilateralmente desde Central)
-                const botonBotarUsuario = `<button class="mini-btn" style="background:#7f1d1d; color:#fca5a5; border:1px solid #ef4444;" onclick="botarUsuarioUnilateral(${u.id})" title="Expulsa y desvincula este móvil">⛔ Botar Sesión</button>`;
+                const estadoBtn = u.estado === 'Disponible' 
+                    ? `<button class="mini-btn btn-danger" ${deshabilitarControles} onclick="despacharUnidad(${u.id})">Despachar</button>`
+                    : `<button class="mini-btn btn-success" ${deshabilitarControles} onclick="liberarUnidad(${u.id})">Liberar</button>`;
+
+                const botonBotarUsuario = `<button class="mini-btn" ${deshabilitarControles} style="background:#7f1d1d; color:#fca5a5; border:1px solid #ef4444;" onclick="botarUsuarioUnilateral(${u.id})">⛔ Botar</button>`;
 
                 card.innerHTML = `
                     <div class="unit-header">
@@ -570,11 +654,11 @@
                 cont.appendChild(card);
             });
 
-            // Actualizar también el selector del celular para excluir unidades ya tomadas
             poblarSelectMovilesCelular();
         }
 
         async function despacharUnidad(id) {
+            if (esModoVisorCentral) return;
             const tipo = document.getElementById('tipo-emergencia').value;
             const dir = incidenteActual ? incidenteActual.dir : (document.getElementById('dir-input').value.trim() || "Ubicación en mapa");
             const lat = incidenteActual ? incidenteActual.lat : map.getCenter().lat;
@@ -602,6 +686,7 @@
         }
 
         async function liberarUnidad(id) {
+            if (esModoVisorCentral) return;
             const u = unidades.find(x => x.id === id);
             if (u) {
                 u.estado = 'Disponible';
@@ -623,9 +708,9 @@
             }).eq('id', id);
         }
 
-        // NUEVA FUNCIÓN: Botar al usuario unilateralmente desde la Central
         async function botarUsuarioUnilateral(id) {
-            if (!confirm(`¿Estás seguro de expulsar y desconectar el móvil ${id} de la sesión actual?`)) return;
+            if (esModoVisorCentral) return;
+            if (!confirm(`¿Estás seguro de expulsar y desconectar el móvil ME-0${id}?`)) return;
             
             const u = unidades.find(x => x.id === id);
             if (u) {
@@ -636,7 +721,6 @@
             renderizarFlota();
             actualizarMarcadores();
 
-            // Limpia por completo en Supabase la señal de este móvil
             await sb.from('flota_gps').update({
                 estado: 'Sin Señal',
                 updated_at: null,
@@ -667,10 +751,10 @@
                     actualizarMarcadores();
                     renderizarFlota();
                     verificarDespachoMovilSeleccionado();
-                    setStatusConexion(true, `Supabase En Vivo (${data.length} móviles sincronizados)`);
+                    setStatusConexion(true, `Supabase En Vivo (${data.length} móviles)`);
                 }
             } catch (err) {
-                setStatusConexion(false, "Modo Local (10 Móviles Base)");
+                setStatusConexion(false, "Modo Local (8 Móviles Base)");
                 unidades = [...unidadesBase];
                 actualizarMarcadores();
                 renderizarFlota();
@@ -705,23 +789,19 @@
         }, 5000);
 
         // --- GESTIÓN MÓVIL ---
-
-        // NUEVO: Advertencia obligatoria al intentar salir o cerrar la app por error en el celular
         window.addEventListener('beforeunload', function (e) {
             if (watchId !== null) {
                 e.preventDefault();
-                e.returnValue = '⚠️ Tu transmisión GPS sigue activa. ¿Estás seguro de salir de la aplicación?';
+                e.returnValue = '⚠️ Tu transmisión GPS sigue activa. ¿Estás seguro de salir?';
                 return e.returnValue;
             }
         });
 
-        // NUEVO: Poblar el selector de móviles excluyendo los que ya tienen señal activa de otro usuario
         function poblarSelectMovilesCelular() {
             const select = document.getElementById('mobile-unit-select');
             if (!select) return;
             const valorActual = parseInt(select.value) || 1;
 
-            // Ordenar siempre la flota numéricamente por ID (de ME-01 a ME-10)
             let unidadesOrdenadas = [...unidades].sort((a, b) => a.id - b.id);
 
             select.innerHTML = '';
@@ -731,8 +811,7 @@
                 if (!ocupadoPorOtro) {
                     const opt = document.createElement('option');
                     opt.value = u.id;
-                    // Mostramos ÚNICAMENTE el nombre (ej: "ME-01"), eliminando la patente
-                    opt.textContent = u.nombre; 
+                    opt.textContent = u.nombre; // Solo muestra ME-01, ME-02, etc. sin patentes
                     if (u.id === valorActual) opt.selected = true;
                     select.appendChild(opt);
                 }
@@ -940,7 +1019,7 @@
             }
         }
 
-        // Inicialización
+        // Inicialización base
         inicializarCheckboxesCapas();
         actualizarMarcadores();
         renderizarFlota();
