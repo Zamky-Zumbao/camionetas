@@ -1036,11 +1036,10 @@
 
             const gpsOptions = {
                 enableHighAccuracy: true,
-                maximumAge: 0, // Forzar lectura fresca del satélite y evitar caché antigua
+                maximumAge: 0,
                 timeout: 15000
             };
 
-            // Función auxiliar para enviar el pulso a Supabase de forma segura
             async function enviarPulsoGPS(lat, lng, acc) {
                 const hora = new Date().toLocaleTimeString();
                 const { error } = await sb.from('flota_gps')
@@ -1056,7 +1055,6 @@
                 }
             }
 
-            // 1. Geolocalización en tiempo real
             watchId = navigator.geolocation.watchPosition(async (pos) => {
                 ultimoLat = pos.coords.latitude;
                 ultimoLng = pos.coords.longitude;
@@ -1066,41 +1064,12 @@
                 log.innerHTML = `⚠️ Advertencia GPS (${err.code}): ${err.message}. Reintentando...`;
             }, gpsOptions);
 
-            // 2. Latido inteligente con verificación de visibilidad de página
             gpsHeartbeatInterval = setInterval(async () => {
                 if (watchId !== null && ultimoLat !== null && ultimoLng !== null) {
-                    // Si la página vuelve a estar visible en primer plano, forzamos un envío inmediato
                     await enviarPulsoGPS(ultimoLat, ultimoLng, 5);
                 }
-            }, 12000); // Cada 12 segundos para estar muy por debajo del límite de 45s de la PC
+            }, 12000);
 
-            // 3. Despertador automático: Si el usuario desbloquea el celular o vuelve a la pestaña, se actualiza al instante
-            document.addEventListener("visibilitychange", async () => {
-                if (document.visibilityState === "visible" && watchId !== null && ultimoLat !== null) {
-                    await enviarPulsoGPS(ultimoLat, ultimoLng, 5);
-                }
-            });
-        }
-
-            // 1. Geolocalización en tiempo real
-            watchId = navigator.geolocation.watchPosition(async (pos) => {
-                ultimoLat = pos.coords.latitude;
-                ultimoLng = pos.coords.longitude;
-                const acc = Math.round(pos.coords.accuracy);
-                await enviarPulsoGPS(ultimoLat, ultimoLng, acc);
-            }, (err) => {
-                log.innerHTML = `⚠️ Advertencia GPS (${err.code}): ${err.message}. Reintentando...`;
-            }, gpsOptions);
-
-            // 2. Latido inteligente con verificación de visibilidad de página
-            gpsHeartbeatInterval = setInterval(async () => {
-                if (watchId !== null && ultimoLat !== null && ultimoLng !== null) {
-                    // Si la página vuelve a estar visible en primer plano, forzamos un envío inmediato
-                    await enviarPulsoGPS(ultimoLat, ultimoLng, 5);
-                }
-            }, 12000); // Cada 12 segundos para estar muy por debajo del límite de 45s de la PC
-
-            // 3. Despertador automático: Si el usuario desbloquea el celular o vuelve a la pestaña, se actualiza al instante
             document.addEventListener("visibilitychange", async () => {
                 if (document.visibilityState === "visible" && watchId !== null && ultimoLat !== null) {
                     await enviarPulsoGPS(ultimoLat, ultimoLng, 5);
@@ -1130,7 +1099,6 @@
                 btn.style.background = "#dc2626";
                 simInterval = setInterval(async () => {
                     for (const u of unidades) {
-                        // Solo simular si el móvil está activo/visible en el cuadro de mandos
                         if (visibilidadMoviles[u.id] !== false) {
                             u.lat += (Math.random() - 0.5) * 0.0018;
                             u.lng += (Math.random() - 0.5) * 0.0018;
@@ -1154,11 +1122,9 @@
 
             if (mode === 'central') {
                 setTimeout(() => map.invalidateSize(), 150);
-                // Si ingresó como Visor (123), ocultar la pestaña o opción de cambiar a Terminal Móvil si es necesario, 
-                // o asegurar que la vista de operador móvil no sea accesible para el visor.
                 if (esModoVisorCentral) {
                     if(btnMobile) {
-                        btnMobile.style.display = 'none'; // El visor no puede usar el terminal de transmisión GPS
+                        btnMobile.style.display = 'none';
                     }
                 }
             }
