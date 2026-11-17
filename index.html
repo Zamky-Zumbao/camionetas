@@ -1059,8 +1059,22 @@
             if(centralView) centralView.style.display = mode === 'central' ? 'flex' : 'none';
             if(mobileView) mobileView.style.display = mode === 'mobile' ? 'flex' : 'none';
 
-            if (mode === 'central') setTimeout(() => map.invalidateSize(), 150);
+            if (mode === 'central') {
+                setTimeout(() => map.invalidateSize(), 150);
+                // Si ingresó como Visor (123), ocultar la pestaña o opción de cambiar a Terminal Móvil si es necesario, 
+                // o asegurar que la vista de operador móvil no sea accesible para el visor.
+                if (esModoVisorCentral) {
+                    if(btnMobile) {
+                        btnMobile.style.display = 'none'; // El visor no puede usar el terminal de transmisión GPS
+                    }
+                }
+            }
             if (mode === 'mobile') {
+                if (esModoVisorCentral) {
+                    alert("⚠️ Acceso restringido: El Modo Visor es de solo lectura y no puede operar como terminal móvil.");
+                    switchMode('central');
+                    return;
+                }
                 poblarSelectMovilesCelular();
                 verificarDespachoMovilSeleccionado(false);
             }
