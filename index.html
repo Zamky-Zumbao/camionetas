@@ -995,21 +995,7 @@
 
         let watchId = null;
         let wakeLock = null;
-
-        async function solicitarWakeLock() {
-            try {
-                if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                    wakeLock.addEventListener('release', () => { wakeLock = null; });
-                }
-            } catch (err) {}
-        }
-
-        document.addEventListener('visibilitychange', async () => {
-            if (wakeLock === null && document.visibilityState === 'visible' && watchId !== null) {
-                await solicitarWakeLock();
-            }
-        });
+        let gpsHeartbeatInterval = null; // Variable para el latido de respaldo
 
         async function toggleTransmisionGPS() {
             pedirPermisoNotificacion();
@@ -1022,6 +1008,10 @@
             if (watchId !== null) {
                 navigator.geolocation.clearWatch(watchId);
                 watchId = null;
+                if (gpsHeartbeatInterval) {
+                    clearInterval(gpsHeartbeatInterval);
+                    gpsHeartbeatInterval = null;
+                }
                 if (wakeLock) { wakeLock.release(); wakeLock = null; }
                 selectMovil.disabled = false;
 
@@ -1041,20 +1031,24 @@
             btn.className = "big-btn btn-danger";
             log.innerHTML = "Buscando señal satelital GPS...";
 
+            let ultimoLat = null;
+            let ultimoLng = null;
+
             const gpsOptions = {
                 enableHighAccuracy: true,
                 maximumAge: 10000,
                 timeout: 30000
             };
 
+            // 1. Geolocalización en tiempo real
             watchId = navigator.geolocation.watchPosition(async (pos) => {
-                const lat = pos.coords.latitude;
-                const lng = pos.coords.longitude;
+                ultimoLat = pos.coords.latitude;
+                ultimoLng = pos.coords.longitude;
                 const acc = Math.round(pos.coords.accuracy);
                 const hora = new Date().toLocaleTimeString();
 
                 const { error } = await sb.from('flota_gps')
-                    .update({ lat, lng, estado: 'Disponible', updated_at: new Date().toISOString() })
+                    .update({ lat: ultimoLat, lng: ultimoLng, estado: 'Disponible', updated_at: new Date().toISOString() })
                     .eq('id', movilId);
 
                 if (error) {
@@ -1062,11 +1056,20 @@
                 } else {
                     const u = unidades.find(x => x.id === movilId);
                     const nom = u ? u.nombre : `ME-0${movilId}`;
-                    log.innerHTML = `✅ <b>TRANSMITIENDO (${nom}) - BLOQUEADO</b><br>Lat: ${lat.toFixed(6)} | Lng: ${lng.toFixed(6)}<br>Precisión: ±${acc}m | ${hora}`;
+                    log.innerHTML = `✅ <b>TRANSMITIENDO (${nom}) - BLOQUEADO</b><br>Lat: ${ultimoLat.toFixed(6)} | Lng: ${ultimoLng.toFixed(6)}<br>Precisión: ±${acc}m | ${hora}`;
                 }
             }, (err) => {
                 log.innerHTML = `⚠️ Advertencia de señal GPS (${err.code}): ${err.message}<br>Manteniendo última posición conocida...`;
             }, gpsOptions);
+
+            // 2. Latido de respaldo automático cada 15 segundos para evitar el estado "Sin Señal GPS" en la PC
+            gpsHeartbeatInterval = setInterval(async () => {
+                if (watchId !== null && ultimoLat !== null && ultimoLng !== null) {
+                    await sb.from('flota_gps')
+                        .update({ lat: ultimoLat, lng: ultimoLng, estado: 'Disponible', updated_at: new Date().toISOString() })
+                        .eq('id', movilId);
+                }
+            }, 15000);
         }
 
         async function actualizarEstadoMovil() {
