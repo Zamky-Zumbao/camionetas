@@ -312,19 +312,39 @@
                 sidebar.insertBefore(banner, sidebar.firstChild);
             }
             
-            // Bloquear inmediatamente todos los controles de despacho y mapas para el visor
+            // Bloquear inmediatamente todos los controles de despacho, mapas y buscador de direcciones para el visor
             setTimeout(() => {
-                // 1. Deshabilitar selectores de emergencia e inputs de dirección
-                document.querySelectorAll('.mini-btn, .map-btn, #tipo-emergencia, #dir-input, .q-tag').forEach(el => {
+                // 1. Deshabilitar selectores, inputs, botones de búsqueda y etiquetas rápidas
+                document.querySelectorAll('.mini-btn, .map-btn, #tipo-emergencia, #dir-input, .q-tag, #sidebar button').forEach(el => {
                     el.disabled = true;
                     el.style.opacity = '0.4';
                     el.style.cursor = 'not-allowed';
                 });
 
-                // 2. BLOQUEO TOTAL DE LOS CHECKBOXES DE VISIBILIDAD DE FLOTA
+                // 2. Bloquear específicamente el botón "Ubicar" y el campo de texto de dirección
+                const btnUbicar = document.querySelector('button[onclick="buscarDireccion()"]');
+                if(btnUbicar) {
+                    btnUbicar.disabled = true;
+                    btnUbicar.style.opacity = '0.4';
+                    btnUbicar.style.cursor = 'not-allowed';
+                }
+
+                const inputDir = document.getElementById('dir-input');
+                if(inputDir) {
+                    inputDir.disabled = true;
+                    inputDir.style.backgroundColor = '#020617';
+                    inputDir.style.cursor = 'not-allowed';
+                }
+
+                // 3. BLOQUEO TOTAL DE LOS CHECKBOXES DE VISIBILIDAD DE FLOTA
                 document.querySelectorAll('#layer-checkboxes input[type="checkbox"]').forEach(chk => {
                     chk.disabled = true;
                     chk.style.cursor = 'not-allowed';
+                });
+
+                // 4. Ocultar enlaces de Marcar/Desmarcar en el panel flotante
+                document.querySelectorAll('.layer-control-panel a').forEach(a => {
+                    a.style.display = 'none';
                 });
             }, 200);
         }
