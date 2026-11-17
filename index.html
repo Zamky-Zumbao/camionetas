@@ -134,7 +134,7 @@
             <div id="password-box">
                 <div class="form-group" style="margin-bottom:8px;">
                     <label>Ingresa Contraseña de Control</label>
-                    <input type="password" id="ctrl-pass-input" class="form-control" placeholder="Clave (NVG o 123)" onkeypress="if(event.key==='Enter') validarClaveControl()">
+                    <input type="password" id="ctrl-pass-input" class="form-control" placeholder="C-L-A-V-E" onkeypress="if(event.key==='Enter') validarClaveControl()">
                 </div>
                 <button class="btn" style="width:100%;" onclick="validarClaveControl()">Ingresar a Central</button>
             </div>
@@ -297,7 +297,7 @@
                 switchMode('central');
                 aplicarModoVisorVisual();
             } else {
-                alert("❌ Contraseña incorrecta. Utiliza NVG (Control Total) o 123 (Modo Visor).");
+                alert("❌ Contraseña incorrecta. Reintentar.");
             }
         }
 
