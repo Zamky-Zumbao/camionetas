@@ -577,14 +577,17 @@
             });
         }
 
+        // Renderizar dinámicamente según lo que el Administrador active en el cuadro de visibilidad
         function renderizarFlota() {
             const cont = document.getElementById('unidades-container');
             if(!cont) return;
             cont.innerHTML = '';
 
-            const unidadesVisibles = unidades.filter(u => visibilidadMoviles[u.id] !== false);
+            // Filtrar estrictamente solo las unidades que el administrador marcó como visibles
+            const unidadesVisibles = unidades.filter(u => visibilidadMoviles[u.id] === true);
+            
             const countText = document.getElementById('fleet-count-text');
-            if(countText) countText.textContent = `Flota Operativa (${unidadesVisibles.length} Móviles)`;
+            if(countText) countText.textContent = `Flota Operativa (${unidadesVisibles.length} Móviles Visibles)`;
 
             unidadesVisibles.forEach((u, idx) => {
                 const offline = esMovilOffline(u);
