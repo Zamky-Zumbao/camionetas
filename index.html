@@ -2,6 +2,12 @@
 <html lang="es">
 <head>
     <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Emergencias LC">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Despacho y GPS en Tiempo Real - Emergencias Las Condes</title>
@@ -271,9 +277,7 @@
     </div>
 
     <!-- Reproductor de audio invisible para evitar suspensión en Android -->
-    <audio id="audio-mudo" loop style="display:none;">
-        <source src="data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU2LjM2LjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAAAAAAAAAAAAAAAAAWGluZm8AAAAZAAAAEAAACvAAAwQGDQ0PDxAREhMTFRUXGBkaGxwdHh8gISIjJCUmJygpKi0uMTIzNDU2Nzg5Ojs8PUI=" type="audio/mp3">
-    </audio>
+    <audio id="audio-mudo" loop playsinline style="display:none;"></audio>
 
     <script>
         const SUPABASE_URL = "https://pmcmcbyxqynzhkachyiz.supabase.co";
@@ -465,31 +469,78 @@
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         }
 
-        function esMovilOffline(u) {
-            if (!u.updated_at) return true;
-            const diffSegundos = (new Date() - new Date(u.updated_at)) / 1000;
-            return diffSegundos > 45;
+        // ===== Parámetros de conectividad =====
+        const UMBRAL_OFFLINE_MS   = 60000;  // 60 s sin recibir datos NUEVOS en esta PC => Sin Señal
+        const INTERVALO_ENVIO_MS  = 5000;   // máx. 1 envío GPS cada 5 s por móvil
+        const INTERVALO_LATIDO_MS = 10000;  // reenvío de última posición si el GPS no se mueve
+        const INTERVALO_SONDEO_MS = 10000;  // respaldo por polling si Realtime se cae
+        let modoActual = null;              // 'central' | 'mobile'
+        let canalOk = false;                // estado del canal Realtime
+
+        // Convierte updated_at a milisegundos asumiendo UTC si no trae zona horaria
+        function parseTs(v) {
+            if (!v) return NaN;
+            let t = String(v);
+            if (!/[zZ]|[+-]\d\d:?\d\d$/.test(t)) t += 'Z';
+            return Date.parse(t);
         }
 
-        async function procesarEmergencia(lat, lng, direccionTexto) {
+        // Se mide con la hora de RECEPCIÓN en esta PC (_rx), no con el reloj del celular.
+        // Así un reloj desfasado entre celular y PC ya no provoca "Sin Señal" falsos.
+        function esMovilOffline(u) {
+            if (!u.updated_at) return true;
+            const t = u._rx || parseTs(u.updated_at);
+            return (Date.now() - t) > UMBRAL_OFFLINE_MS;
+        }
+
+        // Mezcla datos remotos y marca cuándo la PC recibió un dato NUEVO (updated_at cambió)
+        function aplicarRemoto(prev, remoto) {
+            const nuevo = { ...(prev || {}), ...remoto };
+            if (!remoto.updated_at) {
+                nuevo._rx = null;
+            } else if (!prev || !prev._visto) {
+                nuevo._rx = Math.min(Date.now(), parseTs(remoto.updated_at));
+            } else if (prev.updated_at !== remoto.updated_at) {
+                nuevo._rx = Date.now();
+            } else {
+                nuevo._rx = prev._rx;
+            }
+            nuevo._visto = true;
+            return nuevo;
+        }
+
+        let ultimaRutaUnidadId = null;
+        let ultimaRutaTs = 0;
+        let seqRuta = 0;
+
+        // forzar=true  -> acción del operador (recentra mapa, recrea marcador, traza ruta)
+        // forzar=false -> recálculo por eventos GPS (no mueve el mapa; OSRM solo si cambia la unidad sugerida o cada 30 s)
+        async function procesarEmergencia(lat, lng, direccionTexto, forzar = true) {
             const zonaDetectada = detectarZonaCoordenada(lat, lng);
             incidenteActual = { lat, lng, dir: direccionTexto, zona: zonaDetectada };
 
-            if (marcadorIncidente) map.removeLayer(marcadorIncidente);
-            if (lineaRuta) map.removeLayer(lineaRuta);
+            if (forzar) {
+                if (marcadorIncidente) map.removeLayer(marcadorIncidente);
+                if (lineaRuta) { map.removeLayer(lineaRuta); lineaRuta = null; }
+                ultimaRutaUnidadId = null;
 
-            const iconEmerg = L.divIcon({
-                html: `<div style="background:#dc2626;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid #fff;box-shadow:0 0 15px rgba(220,38,38,0.9);">🚨</div>`,
-                iconSize: [32, 32], iconAnchor: [16, 16]
-            });
-
-            marcadorIncidente = L.marker([lat, lng], { icon: iconEmerg }).addTo(map);
-            marcadorIncidente.bindPopup(`<b>INCIDENTE:</b> ${direccionTexto}<br><b>Jurisdicción:</b> ${zonaDetectada}`).openPopup();
+                const iconEmerg = L.divIcon({
+                    html: `<div style="background:#dc2626;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid #fff;box-shadow:0 0 15px rgba(220,38,38,0.9);">🚨</div>`,
+                    iconSize: [32, 32], iconAnchor: [16, 16]
+                });
+                marcadorIncidente = L.marker([lat, lng], { icon: iconEmerg }).addTo(map);
+                marcadorIncidente.bindPopup(`<b>INCIDENTE:</b> ${direccionTexto}<br><b>Jurisdicción:</b> ${zonaDetectada}`).openPopup();
+            }
 
             unidades.forEach(u => {
-                const distLinea = distanciaHaversineKm(u.lat, u.lng, lat, lng);
-                u.distKm = (distLinea * 1.35).toFixed(2);
-                u.etaMin = Math.max(1, Math.round((parseFloat(u.distKm) / 32) * 60));
+                if (u.id === ultimaRutaUnidadId && u._osrm && (Date.now() - u._osrm.ts) < 35000) {
+                    u.distKm = u._osrm.km;
+                    u.etaMin = u._osrm.eta;
+                } else {
+                    const distLinea = distanciaHaversineKm(u.lat, u.lng, lat, lng);
+                    u.distKm = (distLinea * 1.35).toFixed(2);
+                    u.etaMin = Math.max(1, Math.round((parseFloat(u.distKm) / 32) * 60));
+                }
             });
 
             unidades.sort((a, b) => {
@@ -503,38 +554,61 @@
                 return parseFloat(a.distKm) - parseFloat(b.distKm);
             });
 
-            const unidadVisibleSugerida = unidades.find(u => visibilidadMoviles[u.id] !== false && !esMovilOffline(u) && u.estado === 'Disponible') || unidades.find(u => visibilidadMoviles[u.id] !== false);
-            
+            const sugerida = unidades.find(u => visibilidadMoviles[u.id] !== false && !esMovilOffline(u) && u.estado === 'Disponible') || unidades.find(u => visibilidadMoviles[u.id] !== false);
+
             const alertBox = document.getElementById('incident-alert');
             alertBox.style.display = 'block';
-            if (unidadVisibleSugerida) {
-                alertBox.innerHTML = `
-                    <div>📍 <strong>Ubicación:</strong> ${direccionTexto}</div>
-                    <div>🗺️ <strong>Jurisdicción:</strong> ${zonaDetectada}</div>
-                    <div style="margin-top:4px;">🏆 <strong>Unidad Sugerida:</strong> ${unidadVisibleSugerida.nombre} (${unidadVisibleSugerida.zona}) — <b>${unidadVisibleSugerida.distKm || '---'} km (~${unidadVisibleSugerida.etaMin || '---'} min)</b></div>
-                `;
-                if (!esMovilOffline(unidadVisibleSugerida)) await trazarRutaCalle(unidadVisibleSugerida, lat, lng);
+            let html = `
+                <div>📍 <strong>Ubicación:</strong> ${direccionTexto}</div>
+                <div>🗺️ <strong>Jurisdicción:</strong> ${zonaDetectada}</div>`;
+            if (sugerida) {
+                html += `<div style="margin-top:4px;">🏆 <strong>Unidad Sugerida:</strong> ${sugerida.nombre} (${sugerida.zona}) — <b>${sugerida.distKm || '---'} km (~${sugerida.etaMin || '---'} min)</b></div>`;
             }
+            alertBox.innerHTML = html;
+
+            if (sugerida && !esMovilOffline(sugerida)) {
+                const cambio = sugerida.id !== ultimaRutaUnidadId;
+                const vencida = (Date.now() - ultimaRutaTs) > 30000;
+                if (forzar || cambio || vencida || !lineaRuta) {
+                    ultimaRutaUnidadId = sugerida.id;
+                    ultimaRutaTs = Date.now();
+                    await trazarRutaCalle(sugerida, lat, lng);
+                }
+            } else {
+                if (lineaRuta) { map.removeLayer(lineaRuta); lineaRuta = null; }
+                ultimaRutaUnidadId = null;
+            }
+
             renderizarFlota();
-            map.setView([lat, lng], 14);
+            if (forzar) map.setView([lat, lng], 14);
         }
 
         async function trazarRutaCalle(unidad, destLat, destLng) {
-            if (lineaRuta) map.removeLayer(lineaRuta);
+            const miSeq = ++seqRuta;
+            let coords = null;
             try {
                 const url = `https://router.project-osrm.org/route/v1/driving/${unidad.lng},${unidad.lat};${destLng},${destLat}?overview=full&geometries=geojson`;
-                const res = await fetch(url);
+                const ctrl = new AbortController();
+                const to = setTimeout(() => ctrl.abort(), 6000);
+                const res = await fetch(url, { signal: ctrl.signal });
+                clearTimeout(to);
                 const json = await res.json();
                 if (json.routes && json.routes.length > 0) {
-                    const coords = json.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-                    unidad.distKm = (json.routes[0].distance / 1000).toFixed(2);
-                    unidad.etaMin = Math.max(1, Math.round(json.routes[0].duration / 60));
-                    renderizarFlota();
-                    lineaRuta = L.polyline(coords, { color: '#facc15', weight: 5, opacity: 0.9 }).addTo(map);
-                    return;
+                    coords = json.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                    const km = (json.routes[0].distance / 1000).toFixed(2);
+                    const eta = Math.max(1, Math.round(json.routes[0].duration / 60));
+                    unidad.distKm = km;
+                    unidad.etaMin = eta;
+                    unidad._osrm = { km, eta, ts: Date.now() };
                 }
             } catch (e) {}
-            lineaRuta = L.polyline([[unidad.lat, unidad.lng], [destLat, destLng]], { color: '#facc15', weight: 4, dashArray: '6, 8' }).addTo(map);
+
+            if (miSeq !== seqRuta || !incidenteActual) return; // llegó una consulta más nueva o se limpió el incidente
+            if (lineaRuta) map.removeLayer(lineaRuta);
+            lineaRuta = coords
+                ? L.polyline(coords, { color: '#facc15', weight: 5, opacity: 0.9 })
+                : L.polyline([[unidad.lat, unidad.lng], [destLat, destLng]], { color: '#facc15', weight: 4, dashArray: '6, 8' });
+            lineaRuta.addTo(map);
         }
 
         async function buscarDireccion() {
@@ -564,6 +638,8 @@
         function limpiarIncidente() {
             if (esModoVisorCentral) return;
             incidenteActual = null;
+            seqRuta++;
+            ultimaRutaUnidadId = null;
             if (marcadorIncidente) {
                 map.removeLayer(marcadorIncidente);
                 marcadorIncidente = null;
@@ -651,7 +727,7 @@
                     badgeClass = 'st-proc';
                 }
 
-                const ultimaVez = u.updated_at ? new Date(u.updated_at).toLocaleTimeString() : 'Inactivo / Turno Cerrado';
+                const ultimaVez = u.updated_at ? new Date(u._rx || parseTs(u.updated_at)).toLocaleTimeString() : 'Inactivo / Turno Cerrado';
                 const ultimaUbicacionTexto = `<div style="font-size:10.5px; color:#94a3b8; margin-top:2px;">Ult. Pos: (${u.lat.toFixed(4)}, ${u.lng.toFixed(4)}) — ${ultimaVez}</div>`;
                 const deshabilitarControles = esModoVisorCentral ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : '';
 
@@ -768,18 +844,27 @@
             lbl.textContent = texto;
         }
 
+        let cargandoFlota = false;
+        let checkboxesListos = false;
+
         async function cargarFlotaInicial() {
+            if (cargandoFlota) return;
+            cargandoFlota = true;
+            const prevDesp = new Map(unidades.map(u => [u.id, u.incidente_dir || null]));
+            let okRed = true;
             try {
                 const { data, error } = await sb.from('flota_gps').select('*').order('id');
                 if (error) throw error;
                 if (data && data.length > 0) {
                     unidades = unidadesBase.map(base => {
+                        const prev = unidades.find(x => x.id === base.id) || base;
                         const remoto = data.find(d => d.id === base.id);
-                        return remoto ? { ...base, ...remoto } : base;
+                        return remoto ? aplicarRemoto(prev, remoto) : prev;
                     });
                 }
             } catch (err) {
-                unidades = [...unidadesBase];
+                // Ya NO se borra el estado en memoria: un fallo de red momentáneo no debe poner todo en "Sin Señal".
+                okRed = false;
             }
 
             try {
@@ -790,9 +875,35 @@
             } catch (e) {}
 
             actualizarMarcadores();
-            renderizarFlota();
-            inicializarCheckboxesCapas();
-            setStatusConexion(true, "Supabase En Vivo Sincronizado");
+            if (incidenteActual) procesarEmergencia(incidenteActual.lat, incidenteActual.lng, incidenteActual.dir, false);
+            else renderizarFlota();
+
+            if (!checkboxesListos) {
+                inicializarCheckboxesCapas();
+                checkboxesListos = true;
+            } else {
+                unidadesBase.forEach(u => {
+                    const chk = document.getElementById(`chk-movil-${u.id}`);
+                    if (chk) chk.checked = visibilidadMoviles[u.id] !== false;
+                });
+            }
+
+            // Terminal móvil: si el sondeo detecta un despacho nuevo (Realtime caído), avisar igual
+            if (modoActual === 'mobile') {
+                const sel = document.getElementById('mobile-unit-select');
+                const miId = sel ? parseInt(sel.value) : NaN;
+                const u = unidades.find(x => x.id === miId);
+                if (u) {
+                    const antes = prevDesp.get(miId) || null;
+                    const ahora = u.incidente_dir || null;
+                    if (antes !== ahora) verificarDespachoMovilSeleccionado(!antes && !!ahora);
+                }
+            }
+
+            if (!okRed) setStatusConexion(false, "Sin conexión con Supabase (reintentando...)");
+            else if (canalOk) setStatusConexion(true, "Supabase En Vivo Sincronizado");
+            else setStatusConexion(false, "Realtime reconectando — datos por sondeo");
+            cargandoFlota = false;
         }
 
         sb.channel('flota-realtime-channel')
@@ -800,23 +911,33 @@
               const mov = payload.new;
               if (!mov || !mov.id) return;
               const idx = unidades.findIndex(u => u.id === mov.id);
-              const prevDespacho = idx !== -1 ? unidades[idx].incidente_dir : null;
+              const prev = idx !== -1 ? unidades[idx] : null;
+              const prevDespacho = prev ? (prev.incidente_dir || null) : null;
+              const prevEstado = prev ? prev.estado : null;
 
-              if (idx !== -1) unidades[idx] = { ...unidades[idx], ...mov };
-              else unidades.push(mov);
+              const nuevo = aplicarRemoto(prev, mov);
+              if (idx !== -1) unidades[idx] = nuevo;
+              else unidades.push(nuevo);
 
               actualizarMarcadores();
-              if (incidenteActual) procesarEmergencia(incidenteActual.lat, incidenteActual.lng, incidenteActual.dir);
+              if (incidenteActual) procesarEmergencia(incidenteActual.lat, incidenteActual.lng, incidenteActual.dir, false);
               else renderizarFlota();
 
-              const selectMovil = document.getElementById('mobile-unit-select');
-              if (selectMovil) {
-                  const miMovilId = parseInt(selectMovil.value);
+              if (modoActual === 'mobile') {
+                  const selectMovil = document.getElementById('mobile-unit-select');
+                  const miMovilId = selectMovil ? parseInt(selectMovil.value) : NaN;
                   if (mov.id === miMovilId) {
-                      verificarDespachoMovilSeleccionado(!prevDespacho && !!mov.incidente_dir);
+                      if (watchId !== null && mov.estado === 'Sin Señal' && !mov.updated_at) {
+                          detenerTransmision('⛔ La central desconectó este móvil.', false);
+                      } else {
+                          const cambioDesp = prevDespacho !== (mov.incidente_dir || null);
+                          if (cambioDesp || prevEstado !== mov.estado) {
+                              verificarDespachoMovilSeleccionado(!prevDespacho && !!mov.incidente_dir);
+                          }
+                      }
                   }
               }
-              setStatusConexion(true, `Sincronizado: ${mov.nombre}`);
+              if (canalOk) setStatusConexion(true, `Sincronizado: ${mov.nombre || ''}`);
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'central_lock' }, payload => {
               const row = payload.new;
@@ -830,12 +951,23 @@
                   renderizarFlota();
               }
           })
-          .subscribe();
+          .subscribe((status) => {
+              if (status === 'SUBSCRIBED') {
+                  canalOk = true;
+                  setStatusConexion(true, 'Supabase En Vivo Sincronizado');
+                  cargarFlotaInicial(); // resincroniza lo que se perdió mientras estuvo caído
+              } else {
+                  canalOk = false;
+                  setStatusConexion(false, `Realtime caído (${status}) — reconectando...`);
+              }
+          });
 
+        // Redibujo local (para que "Sin Señal" aparezca a tiempo) + sondeo de respaldo
         setInterval(() => {
             renderizarFlota();
             actualizarMarcadores();
         }, 5000);
+        setInterval(cargarFlotaInicial, INTERVALO_SONDEO_MS);
 
         window.addEventListener('beforeunload', function (e) {
             if (watchId !== null) {
@@ -851,18 +983,21 @@
             if (watchId !== null) return;
 
             const valorActual = parseInt(select.value) || 1;
-            let unidadesOrdenadas = [...unidades].sort((a, b) => a.id - b.id);
+            const disponibles = [...unidades].sort((a, b) => a.id - b.id)
+                .filter(u => !( !esMovilOffline(u) && u.id !== valorActual ));
+
+            // Solo reconstruir si cambió la lista (evita cerrar el desplegable en iPhone cada 5 s)
+            const firma = disponibles.map(u => u.id).join(',') + '|' + valorActual;
+            if (select.dataset.firma === firma) return;
+            select.dataset.firma = firma;
 
             select.innerHTML = '';
-            unidadesOrdenadas.forEach(u => {
-                const ocupadoPorOtro = !esMovilOffline(u) && u.id !== valorActual;
-                if (!ocupadoPorOtro) {
-                    const opt = document.createElement('option');
-                    opt.value = u.id;
-                    opt.textContent = u.nombre;
-                    if (u.id === valorActual) opt.selected = true;
-                    select.appendChild(opt);
-                }
+            disponibles.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.id;
+                opt.textContent = u.nombre;
+                if (u.id === valorActual) opt.selected = true;
+                select.appendChild(opt);
             });
 
             if (!select.value && select.options.length > 0) {
@@ -872,7 +1007,7 @@
 
         function pedirPermisoNotificacion() {
             if ("Notification" in window && Notification.permission !== "granted") {
-                Notification.requestPermission();
+                try { Notification.requestPermission(); } catch (e) {}
             }
         }
 
@@ -891,7 +1026,7 @@
                 box.style.display = 'block';
                 document.getElementById('disp-tipo').innerHTML = `<b>Tipología:</b> ${u.incidente_tipo || 'Emergencia'}`;
                 document.getElementById('disp-dir').innerHTML = `<b>Dirección:</b> ${u.incidente_dir}`;
-                
+
                 const dest = (u.incidente_lat && u.incidente_lng) ? `${u.incidente_lat},${u.incidente_lng}` : encodeURIComponent(u.incidente_dir);
                 document.getElementById('btn-nav-gmaps').href = `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
                 document.getElementById('btn-nav-waze').href = `https://waze.com/ul?ll=${dest}&navigate=yes`;
@@ -905,40 +1040,58 @@
             }
         }
 
-        function dispararAlertaExterna(tipo, direccion) {
-            if ("Notification" in window && Notification.permission === "granted") {
-                const notif = new Notification("🚨 ¡NUEVO PROCEDIMIENTO ASIGNADO!", {
-                    body: `${tipo} en ${direccion}`,
-                    icon: "https://cdn-icons-png.flaticon.com/512/565/565547.png",
-                    requireInteraction: true,
-                    vibrate: [500, 250, 500, 250, 500]
-                });
-                notif.onclick = function() {
-                    window.focus();
-                    notif.close();
-                };
-            }
-            emitirSonidoAlertaBucle();
+        // Notificación: en Android Chrome "new Notification()" lanza error; se usa el Service Worker.
+        async function mostrarNotificacion(titulo, cuerpo) {
+            try {
+                if (!("Notification" in window) || Notification.permission !== "granted") return;
+                const reg = ('serviceWorker' in navigator) ? await navigator.serviceWorker.getRegistration() : null;
+                if (reg && reg.showNotification) {
+                    await reg.showNotification(titulo, {
+                        body: cuerpo, icon: 'icon-192.png', tag: 'despacho',
+                        requireInteraction: true, vibrate: [500, 250, 500, 250, 500]
+                    });
+                } else {
+                    new Notification(titulo, { body: cuerpo });
+                }
+            } catch (e) {}
         }
+
+        function dispararAlertaExterna(tipo, direccion) {
+            emitirSonidoAlertaBucle(); // primero el sonido: nunca debe depender de que la notificación funcione
+            mostrarNotificacion("🚨 ¡NUEVO PROCEDIMIENTO ASIGNADO!", `${tipo} en ${direccion}`);
+        }
+
+        // Un único AudioContext reutilizado (crear uno nuevo cada 3 s agotaba el límite del navegador)
+        let audioCtx = null;
+        function obtenerAudioCtx() {
+            try {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return null;
+                if (!audioCtx) audioCtx = new AC();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                return audioCtx;
+            } catch (e) { return null; }
+        }
+        // iOS exige un gesto del usuario para habilitar el audio
+        ['touchend', 'click'].forEach(ev => document.addEventListener(ev, () => obtenerAudioCtx(), { once: true }));
 
         function emitirSonidoAlerta() {
             try {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                const ctx = new AudioContext();
-                if (ctx.state === 'suspended') ctx.resume();
-
-                [880, 1100, 1320, 880, 1100].forEach((freq, i) => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'sawtooth';
-                    osc.frequency.value = freq;
-                    gain.gain.setValueAtTime(0.5, ctx.currentTime + i * 0.15);
-                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.12);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start(ctx.currentTime + i * 0.15);
-                    osc.stop(ctx.currentTime + i * 0.15 + 0.12);
-                });
+                const ctx = obtenerAudioCtx();
+                if (ctx) {
+                    [880, 1100, 1320, 880, 1100].forEach((freq, i) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'sawtooth';
+                        osc.frequency.value = freq;
+                        gain.gain.setValueAtTime(0.5, ctx.currentTime + i * 0.15);
+                        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.12);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(ctx.currentTime + i * 0.15);
+                        osc.stop(ctx.currentTime + i * 0.15 + 0.12);
+                    });
+                }
                 if (navigator.vibrate) navigator.vibrate([400, 200, 400, 200, 600]);
             } catch (e) {}
         }
@@ -968,105 +1121,156 @@
             verificarDespachoMovilSeleccionado(false);
         }
 
+        // ===== Transmisión GPS =====
         let watchId = null;
         let wakeLock = null;
         let gpsHeartbeatInterval = null;
+        let movilTransmitiendoId = null;
+        let ultimoLat = null, ultimoLng = null, ultimaAcc = 5, ultimoEnvio = 0;
+
+        // WAV silencioso válido generado en el momento (el mp3 base64 anterior estaba truncado)
+        function prepararAudioMudo() {
+            const sr = 8000, n = sr; // 1 segundo
+            const buf = new ArrayBuffer(44 + n);
+            const v = new DataView(buf);
+            const w = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+            w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt ');
+            v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+            v.setUint32(24, sr, true); v.setUint32(28, sr, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+            w(36, 'data'); v.setUint32(40, n, true);
+            new Uint8Array(buf, 44).fill(128);
+            return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+        }
 
         async function solicitarWakeLock() {
             try {
-                if ('wakeLock' in navigator) {
+                if ('wakeLock' in navigator && !wakeLock) {
                     wakeLock = await navigator.wakeLock.request('screen');
-                    wakeLock.addEventListener('release', () => {
-                        wakeLock = null;
-                    });
+                    wakeLock.addEventListener('release', () => { wakeLock = null; });
                 }
             } catch (err) {
                 console.log(`Wake Lock error: ${err.name}, ${err.message}`);
             }
         }
 
+        // Envía solo lat/lng/updated_at. YA NO pisa el "estado" (antes volvía a "Disponible" cada pulso).
+        async function enviarPulsoGPS(lat, lng, acc, forzar = false) {
+            if (movilTransmitiendoId === null) return;
+            const ahora = Date.now();
+            if (!forzar && (ahora - ultimoEnvio) < INTERVALO_ENVIO_MS) return;
+            ultimoEnvio = ahora;
+            const id = movilTransmitiendoId;
+            const log = document.getElementById('mobile-gps-log');
+            const hora = new Date().toLocaleTimeString();
+            try {
+                const { error } = await sb.from('flota_gps')
+                    .update({ lat, lng, updated_at: new Date().toISOString() })
+                    .eq('id', id);
+                if (movilTransmitiendoId !== id) return; // se detuvo mientras se enviaba
+                if (error) {
+                    ultimoEnvio = 0; // reintentar en el siguiente pulso
+                    log.innerHTML = `⚠️ Error de red con Supabase: ${error.message}`;
+                } else {
+                    const u = unidades.find(x => x.id === id);
+                    const nom = u ? u.nombre : `ME-0${id}`;
+                    log.innerHTML = `✅ <b>TRANSMITIENDO (${nom}) - ACTIVO</b><br>Lat: ${lat.toFixed(6)} | Lng: ${lng.toFixed(6)}<br>Precisión: ±${acc || 5}m | ${hora}`;
+                }
+            } catch (e) {
+                ultimoEnvio = 0;
+                if (movilTransmitiendoId === id) log.innerHTML = `⚠️ Sin red: ${e.message || e}. Reintentando...`;
+            }
+        }
+
+        async function detenerTransmision(motivo, liberar = true) {
+            const id = movilTransmitiendoId;
+            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+            movilTransmitiendoId = null;
+            if (gpsHeartbeatInterval) { clearInterval(gpsHeartbeatInterval); gpsHeartbeatInterval = null; }
+            if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
+            const audioMudo = document.getElementById('audio-mudo');
+            if (audioMudo) audioMudo.pause();
+            const selectMovil = document.getElementById('mobile-unit-select');
+            if (selectMovil) selectMovil.disabled = false;
+            const btn = document.getElementById('btn-gps-toggle');
+            btn.textContent = "📡 INICIAR TRANSMISIÓN GPS";
+            btn.className = "big-btn btn-success";
+            document.getElementById('mobile-gps-log').innerHTML = motivo || "Estado: Transmisión detenida por el operador.";
+            ultimoLat = null; ultimoLng = null;
+            if (liberar && id !== null) await liberarUnidad(id);
+        }
+
         async function toggleTransmisionGPS() {
             pedirPermisoNotificacion();
+            obtenerAudioCtx();
             const btn = document.getElementById('btn-gps-toggle');
             const log = document.getElementById('mobile-gps-log');
             const selectMovil = document.getElementById('mobile-unit-select');
             const audioMudo = document.getElementById('audio-mudo');
             if(!selectMovil) return;
-            const movilId = parseInt(selectMovil.value);
 
             if (watchId !== null) {
-                navigator.geolocation.clearWatch(watchId);
-                watchId = null;
-                if (gpsHeartbeatInterval) {
-                    clearInterval(gpsHeartbeatInterval);
-                    gpsHeartbeatInterval = null;
-                }
-                if (wakeLock) { wakeLock.release(); wakeLock = null; }
-                if (audioMudo) audioMudo.pause();
-                selectMovil.disabled = false;
-
-                btn.textContent = "📡 INICIAR TRANSMISIÓN GPS";
-                btn.className = "big-btn btn-success";
-                log.innerHTML = "Estado: Transmisión detenida por el operador.";
-                await liberarUnidad(movilId);
+                await detenerTransmision(null, true);
                 return;
             }
 
             if (!navigator.geolocation) return alert("Tu dispositivo no soporta GPS.");
+            const movilId = parseInt(selectMovil.value);
+            movilTransmitiendoId = movilId;
+
             await solicitarWakeLock();
-            if (audioMudo) audioMudo.play().catch(e => console.log("Audio play error:", e));
+            if (audioMudo) {
+                if (!audioMudo.src) audioMudo.src = prepararAudioMudo();
+                audioMudo.play().catch(e => console.log("Audio play error:", e));
+            }
 
             selectMovil.disabled = true;
-
             btn.textContent = "⏹ DETENER TRANSMISIÓN GPS";
             btn.className = "big-btn btn-danger";
             log.innerHTML = "Buscando señal satelital GPS...";
 
-            let ultimoLat = null;
-            let ultimoLng = null;
+            // Estado inicial (una sola vez): conserva "En Ruta"/"En Procedimiento" si ya los tenía
+            try {
+                const u = unidades.find(x => x.id === movilId);
+                const estadoInicial = (u && u.estado && u.estado !== 'Sin Señal') ? u.estado : 'Disponible';
+                await sb.from('flota_gps').update({ estado: estadoInicial, updated_at: new Date().toISOString() }).eq('id', movilId);
+            } catch (e) {}
 
-            const gpsOptions = {
-                enableHighAccuracy: true,
-                maximumAge: 0,
-                timeout: 15000
-            };
-
-            async function enviarPulsoGPS(lat, lng, acc) {
-                const hora = new Date().toLocaleTimeString();
-                const { error } = await sb.from('flota_gps')
-                    .update({ lat, lng, estado: 'Disponible', updated_at: new Date().toISOString() })
-                    .eq('id', movilId);
-
-                if (error) {
-                    log.innerHTML = `⚠️ Error de red con Supabase: ${error.message}`;
-                } else {
-                    const u = unidades.find(x => x.id === movilId);
-                    const nom = u ? u.nombre : `ME-0${movilId}`;
-                    log.innerHTML = `✅ <b>TRANSMITIENDO (${nom}) - ACTIVO</b><br>Lat: ${lat.toFixed(6)} | Lng: ${lng.toFixed(6)}<br>Precisión: ±${acc || 5}m | ${hora}`;
-                }
-            }
+            ultimoEnvio = 0;
+            const gpsOptions = { enableHighAccuracy: true, maximumAge: 2000, timeout: 30000 };
 
             watchId = navigator.geolocation.watchPosition(async (pos) => {
                 ultimoLat = pos.coords.latitude;
                 ultimoLng = pos.coords.longitude;
-                const acc = Math.round(pos.coords.accuracy);
-                await enviarPulsoGPS(ultimoLat, ultimoLng, acc);
+                ultimaAcc = Math.round(pos.coords.accuracy);
+                await enviarPulsoGPS(ultimoLat, ultimoLng, ultimaAcc);
             }, (err) => {
-                log.innerHTML = `⚠️ Advertencia GPS (${err.code}): ${err.message}. Reintentando...`;
+                if (err.code === 1) {
+                    log.innerHTML = "⛔ Permiso de ubicación denegado. Actívalo en los ajustes del navegador (ubicación: Permitir / Precisa).";
+                } else {
+                    log.innerHTML = `⚠️ Advertencia GPS (${err.code}): ${err.message}. Reintentando...`;
+                }
             }, gpsOptions);
 
-            gpsHeartbeatInterval = setInterval(async () => {
-                if (watchId !== null && ultimoLat !== null && ultimoLng !== null) {
-                    await enviarPulsoGPS(ultimoLat, ultimoLng, 5);
-                }
-            }, 12000);
-
-            document.addEventListener("visibilitychange", async () => {
-                if (document.visibilityState === "visible" && watchId !== null && ultimoLat !== null) {
-                    await enviarPulsoGPS(ultimoLat, ultimoLng, 5);
-                }
-            });
+            // Latido: reenvía la última posición aunque el GPS no se mueva
+            gpsHeartbeatInterval = setInterval(() => {
+                if (watchId !== null && ultimoLat !== null) enviarPulsoGPS(ultimoLat, ultimoLng, ultimaAcc);
+            }, INTERVALO_LATIDO_MS);
         }
+
+        // Registrados UNA sola vez (antes se acumulaban listeners en cada inicio de transmisión)
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState !== 'visible') return;
+            if (watchId !== null) {
+                await solicitarWakeLock(); // el sistema lo libera al ocultar la pantalla; hay que pedirlo de nuevo
+                if (ultimoLat !== null) await enviarPulsoGPS(ultimoLat, ultimoLng, ultimaAcc, true);
+            }
+            cargarFlotaInicial();
+        });
+        window.addEventListener('online', () => {
+            if (watchId !== null && ultimoLat !== null) enviarPulsoGPS(ultimoLat, ultimoLng, ultimaAcc, true);
+            cargarFlotaInicial();
+        });
 
         async function actualizarEstadoMovil() {
             const selectMovil = document.getElementById('mobile-unit-select');
@@ -1077,30 +1281,43 @@
         }
 
         let simInterval = null;
+        let simIds = [];
         function toggleSimulacion() {
             if (esModoVisorCentral) return;
             const btn = document.getElementById('btn-sim');
             if (simInterval) {
                 clearInterval(simInterval);
                 simInterval = null;
+                simIds = [];
                 btn.textContent = "▶ Simular Patrullaje";
                 btn.style.background = "#0f172a";
             } else {
+                // Solo simula móviles que NO tienen GPS real transmitiendo
+                simIds = unidades.filter(u => visibilidadMoviles[u.id] !== false && esMovilOffline(u)).map(u => u.id);
+                if (simIds.length === 0) {
+                    alert("Todos los móviles visibles tienen GPS real activo; no hay unidades que simular.");
+                    return;
+                }
                 btn.textContent = "⏸ Detener Simulación";
                 btn.style.background = "#dc2626";
                 simInterval = setInterval(async () => {
-                    for (const u of unidades) {
-                        if (visibilidadMoviles[u.id] !== false) {
-                            u.lat += (Math.random() - 0.5) * 0.0018;
-                            u.lng += (Math.random() - 0.5) * 0.0018;
-                            await sb.from('flota_gps').update({ lat: u.lat, lng: u.lng, updated_at: new Date().toISOString() }).eq('id', u.id);
-                        }
-                    }
+                    await Promise.all(simIds.map(id => {
+                        const u = unidades.find(x => x.id === id);
+                        if (!u) return null;
+                        const lat = u.lat + (Math.random() - 0.5) * 0.0018;
+                        const lng = u.lng + (Math.random() - 0.5) * 0.0018;
+                        return sb.from('flota_gps').update({
+                            lat, lng,
+                            estado: u.estado === 'Sin Señal' ? 'Disponible' : u.estado,
+                            updated_at: new Date().toISOString()
+                        }).eq('id', id);
+                    }));
                 }, 2500);
             }
         }
 
         function switchMode(mode) {
+            modoActual = mode;
             const btnCentral = document.getElementById('btn-mode-central');
             const btnMobile = document.getElementById('btn-mode-mobile');
             const centralView = document.getElementById('central-view');
